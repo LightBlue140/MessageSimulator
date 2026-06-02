@@ -2,6 +2,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { defaultConfig, simulatorConfigSchema, type SimulatorConfig } from "./schema.js";
 
+const cloneDefaultConfig = () => simulatorConfigSchema.parse(structuredClone(defaultConfig));
+
+const isMissingFileError = (error: unknown) =>
+  typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+
 export class ConfigStore {
   constructor(private readonly filePath: string) {}
 
@@ -10,7 +15,10 @@ export class ConfigStore {
       const raw = await readFile(this.filePath, "utf8");
       return simulatorConfigSchema.parse(JSON.parse(raw));
     } catch (error) {
-      return defaultConfig;
+      if (isMissingFileError(error)) {
+        return cloneDefaultConfig();
+      }
+      throw error;
     }
   }
 

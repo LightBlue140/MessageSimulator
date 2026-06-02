@@ -11,7 +11,11 @@ export class RecentLogs {
   private nextId = 1;
   private entries: LogEntry[] = [];
 
-  constructor(private readonly limit = 100) {}
+  constructor(private readonly limit = 100) {
+    if (!Number.isFinite(limit) || !Number.isInteger(limit) || limit <= 0) {
+      throw new Error("RecentLogs limit must be a positive integer");
+    }
+  }
 
   add(level: LogLevel, message: string) {
     this.entries.push({
@@ -24,6 +28,6 @@ export class RecentLogs {
   }
 
   list() {
-    return [...this.entries];
+    return this.entries.map((entry) => ({ ...entry }));
   }
 }
