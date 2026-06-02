@@ -6,6 +6,16 @@ interface ProtocolSettingsProps {
 }
 
 export function ProtocolSettings({ config, setConfig }: ProtocolSettingsProps) {
+  const updateSettings = <T extends keyof SimulatorConfig["serverSettings"]>(
+    protocol: T,
+    settings: SimulatorConfig["serverSettings"][T]
+  ) => {
+    setConfig({
+      ...config,
+      serverSettings: { ...config.serverSettings, [protocol]: settings }
+    });
+  };
+
   return (
     <section>
       <label>
@@ -23,7 +33,151 @@ export function ProtocolSettings({ config, setConfig }: ProtocolSettingsProps) {
           <option value="opcua">OPC UA</option>
         </select>
       </label>
-      <p>当前协议：{config.protocol}</p>
+      {config.protocol === "http" && (
+        <>
+          <label>
+            HTTP 路径
+            <input
+              value={config.serverSettings.http.path}
+              onChange={(event) =>
+                updateSettings("http", { ...config.serverSettings.http, path: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            Content-Type
+            <input
+              value={config.serverSettings.http.contentType}
+              onChange={(event) =>
+                updateSettings("http", {
+                  ...config.serverSettings.http,
+                  contentType: event.target.value
+                })
+              }
+            />
+          </label>
+        </>
+      )}
+      {config.protocol === "mqtt" && (
+        <>
+          <label>
+            Topic
+            <input
+              value={config.serverSettings.mqtt.topic}
+              onChange={(event) =>
+                updateSettings("mqtt", { ...config.serverSettings.mqtt, topic: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            QoS
+            <select
+              value={config.serverSettings.mqtt.qos}
+              onChange={(event) =>
+                updateSettings("mqtt", {
+                  ...config.serverSettings.mqtt,
+                  qos: Number(event.target.value) as 0 | 1 | 2
+                })
+              }
+            >
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+            </select>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={config.serverSettings.mqtt.retain}
+              onChange={(event) =>
+                updateSettings("mqtt", {
+                  ...config.serverSettings.mqtt,
+                  retain: event.target.checked
+                })
+              }
+            />
+            Retain
+          </label>
+        </>
+      )}
+      {config.protocol === "websocket" && (
+        <label>
+          WebSocket 路径
+          <input
+            value={config.serverSettings.websocket.path}
+            onChange={(event) =>
+              updateSettings("websocket", {
+                ...config.serverSettings.websocket,
+                path: event.target.value
+              })
+            }
+          />
+        </label>
+      )}
+      {config.protocol === "tcp" && (
+        <>
+          <label>
+            TCP Encoding
+            <select
+              value={config.serverSettings.tcp.encoding}
+              onChange={(event) =>
+                updateSettings("tcp", {
+                  ...config.serverSettings.tcp,
+                  encoding: event.target.value as "utf8" | "ascii"
+                })
+              }
+            >
+              <option value="utf8">utf8</option>
+              <option value="ascii">ascii</option>
+            </select>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={config.serverSettings.tcp.appendNewline}
+              onChange={(event) =>
+                updateSettings("tcp", {
+                  ...config.serverSettings.tcp,
+                  appendNewline: event.target.checked
+                })
+              }
+            />
+            追加换行
+          </label>
+        </>
+      )}
+      {config.protocol === "opcua" && (
+        <>
+          <label>
+            NodeId
+            <input
+              value={config.serverSettings.opcua.nodeId}
+              onChange={(event) =>
+                updateSettings("opcua", {
+                  ...config.serverSettings.opcua,
+                  nodeId: event.target.value
+                })
+              }
+            />
+          </label>
+          <label>
+            数据类型
+            <select
+              value={config.serverSettings.opcua.dataType}
+              onChange={(event) =>
+                updateSettings("opcua", {
+                  ...config.serverSettings.opcua,
+                  dataType: event.target.value as "String" | "Double" | "Boolean"
+                })
+              }
+            >
+              <option value="String">String</option>
+              <option value="Double">Double</option>
+              <option value="Boolean">Boolean</option>
+            </select>
+          </label>
+        </>
+      )}
     </section>
   );
 }

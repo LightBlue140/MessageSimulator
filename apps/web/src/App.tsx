@@ -21,18 +21,30 @@ export function App() {
             type="number"
             value={config.sendIntervalSeconds}
             readOnly={config.protocol === "http"}
+            onChange={(event) =>
+              setConfig({ ...config, sendIntervalSeconds: Number(event.target.value) })
+            }
           />
         </label>
         <label>
           随机刷新间隔（秒）
-          <input type="number" value={config.randomizeIntervalSeconds} readOnly />
+          <input
+            type="number"
+            value={config.randomizeIntervalSeconds}
+            onChange={(event) =>
+              setConfig({ ...config, randomizeIntervalSeconds: Number(event.target.value) })
+            }
+          />
         </label>
       </section>
       <MessageTemplate
         value={config.messageTemplate}
         onChange={(messageTemplate) => setConfig({ ...config, messageTemplate })}
       />
-      <ParameterEditor />
+      <ParameterEditor
+        parameters={config.parameters}
+        onChange={(parameters) => setConfig({ ...config, parameters })}
+      />
     </main>
   );
 }
