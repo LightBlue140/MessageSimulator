@@ -32,6 +32,7 @@ export function App() {
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [configFilePath, setConfigFilePath] = useState("");
+  const [pendingRuntimeAction, setPendingRuntimeAction] = useState<"start" | "stop" | undefined>();
   const [view, setView] = useState<"editor" | "parameters" | "logs">("editor");
 
   useEffect(() => {
@@ -68,13 +69,23 @@ export function App() {
 
   const handleStart = () =>
     runAction(async () => {
-      await saveConfig(config);
-      setStatus(await startSimulator());
+      setPendingRuntimeAction("start");
+      try {
+        await saveConfig(config);
+        setStatus(await startSimulator());
+      } finally {
+        setPendingRuntimeAction(undefined);
+      }
     });
 
   const handleStop = () =>
     runAction(async () => {
-      setStatus(await stopSimulator());
+      setPendingRuntimeAction("stop");
+      try {
+        setStatus(await stopSimulator());
+      } finally {
+        setPendingRuntimeAction(undefined);
+      }
     });
 
   const handleSaveConfigFile = () =>
@@ -110,10 +121,19 @@ export function App() {
           />
         </label>
         <div className="action-group">
-          <button className="primary-action" type="button" onClick={handleStart}>
+          <button
+            className="primary-action"
+            type="button"
+            disabled={status.running || pendingRuntimeAction !== undefined}
+            onClick={handleStart}
+          >
             启动
           </button>
-          <button type="button" onClick={handleStop}>
+          <button
+            type="button"
+            disabled={!status.running || pendingRuntimeAction !== undefined}
+            onClick={handleStop}
+          >
             停止
           </button>
           <button type="button" onClick={handlePreview}>

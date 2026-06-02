@@ -34,6 +34,43 @@ describe("runtime controls", () => {
     expect(screen.getByText("日志页")).toBeInTheDocument();
   });
 
+  it("prevents clicking the active runtime action repeatedly", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("/health")) {
+        throw new Error("offline");
+      }
+      if (String(url) === "/api/config") {
+        return { ok: true, json: async () => ({}) };
+      }
+      if (String(url) === "/api/start") {
+        return { ok: true, json: async () => ({ running: true, logs: [] }) };
+      }
+      if (String(url) === "/api/stop") {
+        return { ok: true, json: async () => ({ running: false, logs: [] }) };
+      }
+      throw new Error(`Unhandled request ${String(url)} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    const start = screen.getByText("启动");
+    const stop = screen.getByText("停止");
+
+    expect(start).toBeEnabled();
+    expect(stop).toBeDisabled();
+
+    fireEvent.click(start);
+    await vi.waitFor(() => expect(stop).toBeEnabled());
+    expect(start).toBeDisabled();
+
+    fireEvent.click(start);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    fireEvent.click(stop);
+    await vi.waitFor(() => expect(start).toBeEnabled());
+    expect(stop).toBeDisabled();
+  });
+
   it("places config and message in independent scroll regions", () => {
     render(<App />);
 

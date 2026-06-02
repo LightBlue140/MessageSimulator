@@ -35,6 +35,14 @@ button:hover {
   box-shadow: 0 1px 8px rgba(37, 99, 235, 0.16);
 }
 
+button:disabled {
+  border-color: #cbd5e1;
+  background: #e2e8f0;
+  color: #64748b;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .primary-action {
   border-color: #2563eb;
   background: #2563eb;
