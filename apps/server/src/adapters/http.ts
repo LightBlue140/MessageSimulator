@@ -19,7 +19,7 @@ export class HttpAdapter implements SimulatorAdapter {
 
     this.app = app;
     this.requestCount = 0;
-    this.listenAddress = await app.listen({ host: "127.0.0.1", port: settings.port });
+    this.listenAddress = await app.listen({ host: "0.0.0.0", port: settings.port });
   }
 
   async stop(): Promise<void> {

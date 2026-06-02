@@ -26,12 +26,16 @@ interface RuntimeStatus {
   adapterStatus?: AdapterStatus;
 }
 
+const defaultConfigFilePath = "save/config.json";
+type ConfigFileDialogMode = "save" | "load";
+
 export function App() {
   const [config, setConfig] = useState(defaultConfig);
   const [status, setStatus] = useState<RuntimeStatus>({ running: false, logs: [] });
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
-  const [configFilePath, setConfigFilePath] = useState("");
+  const [configFilePath, setConfigFilePath] = useState(defaultConfigFilePath);
+  const [configFileDialogMode, setConfigFileDialogMode] = useState<ConfigFileDialogMode | undefined>();
   const [pendingRuntimeAction, setPendingRuntimeAction] = useState<"start" | "stop" | undefined>();
   const [view, setView] = useState<"editor" | "parameters" | "logs">("editor");
 
@@ -88,18 +92,23 @@ export function App() {
       }
     });
 
-  const handleSaveConfigFile = () =>
-    runAction(async () => {
-      const result = await saveConfigFile(config, configFilePath);
-      setConfigFilePath(result.path);
-    });
+  const closeConfigFileDialog = () => setConfigFileDialogMode(undefined);
 
-  const handleLoadConfigFile = () =>
+  const handleConfirmConfigFile = () =>
     runAction(async () => {
-      const result = await loadConfigFile(configFilePath);
-      setConfig(result.config);
-      setConfigFilePath(result.path);
-      setView("editor");
+      if (configFileDialogMode === "save") {
+        const result = await saveConfigFile(config, configFilePath);
+        setConfigFilePath(result.path);
+      }
+
+      if (configFileDialogMode === "load") {
+        const result = await loadConfigFile(configFilePath);
+        setConfig(result.config);
+        setConfigFilePath(result.path);
+        setView("editor");
+      }
+
+      closeConfigFileDialog();
     });
 
   return (
@@ -112,14 +121,6 @@ export function App() {
         <StatusPanel running={status.running} />
       </header>
       <section className="toolbar panel" aria-label="操作区">
-        <label className="file-path-control">
-          配置保存路径
-          <input
-            placeholder="save/config.json"
-            value={configFilePath}
-            onChange={(event) => setConfigFilePath(event.target.value)}
-          />
-        </label>
         <div className="action-group">
           <button
             className="primary-action"
@@ -139,10 +140,10 @@ export function App() {
           <button type="button" onClick={handlePreview}>
             预览生成消息
           </button>
-          <button type="button" onClick={handleSaveConfigFile}>
+          <button type="button" onClick={() => setConfigFileDialogMode("save")}>
             保存配置文件
           </button>
-          <button type="button" onClick={handleLoadConfigFile}>
+          <button type="button" onClick={() => setConfigFileDialogMode("load")}>
             加载配置文件
           </button>
         </div>
@@ -230,6 +231,39 @@ export function App() {
         <section className="panel scroll-region log-page" aria-label="日志页内容">
           <LogViewer logs={status.logs} />
         </section>
+      )}
+      {configFileDialogMode && (
+        <div className="modal-backdrop">
+          <section
+            aria-label="配置文件路径选择"
+            aria-modal="true"
+            className="panel config-file-dialog"
+            role="dialog"
+          >
+            <div className="section-title">
+              <span className="eyebrow">Config File</span>
+              <h2>{configFileDialogMode === "save" ? "保存配置文件" : "加载配置文件"}</h2>
+            </div>
+            <label>
+              配置文件路径
+              <input
+                autoFocus
+                placeholder={defaultConfigFilePath}
+                value={configFilePath}
+                onChange={(event) => setConfigFilePath(event.target.value)}
+              />
+            </label>
+            <p className="dialog-hint">默认保存到项目根目录的 save 文件夹，可输入相对路径或绝对路径。</p>
+            <div className="dialog-actions">
+              <button type="button" onClick={closeConfigFileDialog}>
+                取消
+              </button>
+              <button className="primary-action" type="button" onClick={handleConfirmConfigFile}>
+                {configFileDialogMode === "save" ? "确认保存" : "确认加载"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </main>
   );

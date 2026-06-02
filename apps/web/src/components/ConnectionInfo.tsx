@@ -1,6 +1,9 @@
 import type { AdapterStatus, SimulatorConfig } from "../types";
 
-const localUrl = (scheme: string, port: number, path = "") => `${scheme}://localhost:${port}${path}`;
+const currentHost = () => globalThis.location?.hostname || "localhost";
+const localUrl = (scheme: string, port: number, path = "") => `${scheme}://${currentHost()}:${port}${path}`;
+const displayAddress = (address: string | undefined) =>
+  address?.replace("://0.0.0.0:", `://${currentHost()}:`);
 
 export function ConnectionInfo({
   config,
@@ -9,7 +12,7 @@ export function ConnectionInfo({
   config: SimulatorConfig;
   adapterStatus?: AdapterStatus;
 }) {
-  const actual = adapterStatus?.listenAddress;
+  const actual = displayAddress(adapterStatus?.listenAddress);
   const mqtt = config.serverSettings.mqtt;
 
   return (

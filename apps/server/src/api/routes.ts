@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
 import { HttpAdapter } from "../adapters/http.js";
@@ -49,7 +49,13 @@ const resolveSavePath = (inputPath: unknown, defaultSavePath: string) => {
   if (typeof inputPath !== "string" || inputPath.trim() === "") {
     return defaultSavePath;
   }
-  return resolve(inputPath);
+
+  const trimmedPath = inputPath.trim();
+  if (isAbsolute(trimmedPath)) {
+    return resolve(trimmedPath);
+  }
+
+  return resolve(dirname(dirname(defaultSavePath)), trimmedPath);
 };
 
 const createDefaultRuntime = () =>

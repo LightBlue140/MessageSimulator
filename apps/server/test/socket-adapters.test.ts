@@ -36,10 +36,11 @@ describe("socket adapters", () => {
     const adapter = new WebSocketAdapter();
     await adapter.start(contextFor("websocket", 0));
     const address = adapter.getStatus().listenAddress;
+    const clientAddress = address?.replace("0.0.0.0", "127.0.0.1");
 
     try {
       const message = await new Promise<string>((resolve, reject) => {
-        const socket = new WebSocket(`${address}/ws`);
+        const socket = new WebSocket(`${clientAddress}/ws`);
         socket.on("message", (data) => {
           socket.close();
           resolve(data.toString());
@@ -48,6 +49,7 @@ describe("socket adapters", () => {
       });
 
       expect(message).toBe("snapshot");
+      expect(address).toMatch(/^ws:\/\/0\.0\.0\.0:\d+$/);
       expect(adapter.getStatus().connectedClients).toBe(1);
     } finally {
       await adapter.stop();

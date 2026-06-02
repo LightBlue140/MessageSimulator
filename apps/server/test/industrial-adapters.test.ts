@@ -29,7 +29,7 @@ describe("MQTT and OPC UA adapters", () => {
     try {
       await adapter.start(context);
 
-      expect(adapter.getStatus().listenAddress).toMatch(/^mqtt:\/\/127\.0\.0\.1:\d+$/);
+      expect(adapter.getStatus().listenAddress).toMatch(/^mqtt:\/\/0\.0\.0\.0:\d+$/);
     } finally {
       await adapter.stop();
     }

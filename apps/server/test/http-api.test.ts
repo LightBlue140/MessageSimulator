@@ -94,6 +94,24 @@ describe("management API", () => {
     expect(response.json()).toMatchObject({ path: join(dir, "save", "config.json"), config });
   });
 
+  it("resolves relative config file paths from the default save root", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const config = { ...defaultConfig, messageTemplate: "relative-save={aa}" };
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/config-file/save",
+      payload: { path: "save/relative.json", config }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ path: join(dir, "save", "relative.json"), config });
+  });
+
   it("does not save runtime logs in config files", async () => {
     const { app, dir } = await createApp();
     cleanup.push(async () => {
@@ -173,10 +191,11 @@ describe("HttpAdapter", () => {
     try {
       await adapter.start(context);
       const address = adapter.getStatus().listenAddress;
+      const requestAddress = address?.replace("0.0.0.0", "127.0.0.1");
 
-      expect(address).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+      expect(address).toMatch(/^http:\/\/0\.0\.0\.0:\d+$/);
 
-      const response = await fetch(`${address}/current`);
+      const response = await fetch(`${requestAddress}/current`);
 
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("text/plain");

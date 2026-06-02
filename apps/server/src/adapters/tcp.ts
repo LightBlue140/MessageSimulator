@@ -20,7 +20,7 @@ export class TcpAdapter implements SimulatorAdapter {
     });
 
     await new Promise<void>((resolve) => {
-      this.server!.listen(settings.port, "127.0.0.1", resolve);
+      this.server!.listen(settings.port, "0.0.0.0", resolve);
     });
 
     this.listenAddress = this.addressFromServer();

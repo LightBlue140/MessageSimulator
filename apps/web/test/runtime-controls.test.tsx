@@ -3,6 +3,8 @@ import { within } from "@testing-library/dom";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
+import { ConnectionInfo } from "../src/components/ConnectionInfo";
+import { defaultConfig } from "../src/types";
 
 describe("runtime controls", () => {
   afterEach(() => {
@@ -23,8 +25,7 @@ describe("runtime controls", () => {
   it("shows start stop preview and logs controls", () => {
     render(<App />);
 
-    expect(screen.getByLabelText("配置保存路径")).toBeInTheDocument();
-    expect(screen.getByLabelText("配置保存路径")).toHaveAttribute("placeholder", "save/config.json");
+    expect(screen.queryByLabelText("配置文件路径")).not.toBeInTheDocument();
     expect(screen.getByText("启动")).toBeInTheDocument();
     expect(screen.getByText("停止")).toBeInTheDocument();
     expect(screen.getByText("预览生成消息")).toBeInTheDocument();
@@ -32,6 +33,26 @@ describe("runtime controls", () => {
     expect(screen.getByText("加载配置文件")).toBeInTheDocument();
     expect(screen.getByText("参数页")).toBeInTheDocument();
     expect(screen.getByText("日志页")).toBeInTheDocument();
+  });
+
+  it("opens a path picker dialog for saving config files", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("保存配置文件"));
+
+    expect(screen.getByRole("dialog", { name: "配置文件路径选择" })).toBeInTheDocument();
+    expect(screen.getByLabelText("配置文件路径")).toHaveValue("save/config.json");
+    expect(screen.getByText("确认保存")).toBeInTheDocument();
+  });
+
+  it("opens a path picker dialog for loading config files", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("加载配置文件"));
+
+    expect(screen.getByRole("dialog", { name: "配置文件路径选择" })).toBeInTheDocument();
+    expect(screen.getByLabelText("配置文件路径")).toHaveValue("save/config.json");
+    expect(screen.getByText("确认加载")).toBeInTheDocument();
   });
 
   it("prevents clicking the active runtime action repeatedly", async () => {
@@ -131,6 +152,19 @@ describe("runtime controls", () => {
     expect(screen.getByText("Endpoint")).toBeInTheDocument();
     expect(screen.getByText("opc.tcp://localhost:4840/simulator")).toBeInTheDocument();
     expect(screen.getByText("s=Message")).toBeInTheDocument();
+  });
+
+  it("shows the current LAN host for wildcard listen addresses", () => {
+    vi.stubGlobal("location", { hostname: "192.168.15.152" });
+
+    render(
+      <ConnectionInfo
+        config={defaultConfig}
+        adapterStatus={{ listenAddress: "http://0.0.0.0:8080" }}
+      />
+    );
+
+    expect(screen.getByText("http://192.168.15.152:8080/message")).toBeInTheDocument();
   });
 
   it("uses a large message template editor", () => {
