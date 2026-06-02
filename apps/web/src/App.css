@@ -133,6 +133,16 @@ label {
   margin: 10px 0;
 }
 
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto;
+}
+
 input,
 select,
 textarea {

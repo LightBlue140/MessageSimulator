@@ -78,7 +78,7 @@ export function ParameterEditor({ parameters, onChange }: ParameterEditorProps) 
               <option value="vector">Vector</option>
             </select>
           </label>
-          <label>
+          <label className="checkbox-label">
             <input
               type="checkbox"
               checked={parameter.enabled}
@@ -125,12 +125,16 @@ export function ParameterEditor({ parameters, onChange }: ParameterEditorProps) 
           {parameter.type === "string" && (
             <label>
               候选值 {parameter.name}
-              <input
-                value={parameter.candidates.join(",")}
+              <textarea
+                rows={3}
+                value={parameter.candidates.join("\n")}
                 onChange={(event) =>
                   updateParameter(index, {
                     ...parameter,
-                    candidates: event.target.value.split(",").map((value) => value.trim())
+                    candidates: event.target.value
+                      .split(/\r?\n/)
+                      .map((value) => value.trim())
+                      .filter(Boolean)
                   })
                 }
               />

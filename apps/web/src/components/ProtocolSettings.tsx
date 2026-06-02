@@ -85,7 +85,7 @@ export function ProtocolSettings({ config, setConfig }: ProtocolSettingsProps) {
               <option value="2">2</option>
             </select>
           </label>
-          <label>
+          <label className="checkbox-label">
             <input
               type="checkbox"
               checked={config.serverSettings.mqtt.retain}
@@ -156,7 +156,7 @@ export function ProtocolSettings({ config, setConfig }: ProtocolSettingsProps) {
               <option value="ascii">ascii</option>
             </select>
           </label>
-          <label>
+          <label className="checkbox-label">
             <input
               type="checkbox"
               checked={config.serverSettings.tcp.appendNewline}
