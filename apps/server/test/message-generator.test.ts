@@ -39,6 +39,53 @@ describe("generateMessageSnapshot", () => {
     );
   });
 
+  it("preserves quote style and escapes string assignment replacements", () => {
+    const parameters: ParameterConfig[] = [
+      { name: "name", type: "string", enabled: true, candidates: ["hello \"world\""] },
+      { name: "title", type: "string", enabled: true, candidates: ["can't stop"] }
+    ];
+
+    expect(generateMessageSnapshot("name=\"old\" title='old'", parameters)).toBe(
+      "name=\"hello \\\"world\\\"\" title='can\\'t stop'"
+    );
+  });
+
+  it("uses raw string values for unquoted string assignments", () => {
+    const parameters: ParameterConfig[] = [
+      { name: "name", type: "string", enabled: true, candidates: ["hello world"] }
+    ];
+
+    expect(generateMessageSnapshot("name=old", parameters)).toBe("name=hello world");
+  });
+
+  it("ignores disabled parameters in plain assignments", () => {
+    const parameters: ParameterConfig[] = [
+      { name: "name", type: "string", enabled: false, candidates: ["new"] }
+    ];
+
+    expect(generateMessageSnapshot("name=\"old\"", parameters)).toBe("name=\"old\"");
+  });
+
+  it("generates independent values for repeated plain assignments", () => {
+    const parameters: ParameterConfig[] = [
+      { name: "pick", type: "integer", enabled: true, min: 1, max: 3 }
+    ];
+
+    const originalRandom = Math.random;
+    Math.random = (() => {
+      const values = [0, 0.5, 0.99];
+      return () => values.shift() ?? 0;
+    })();
+
+    try {
+      expect(generateMessageSnapshot("pick=0 pick=0 pick=0", parameters)).toBe(
+        "pick=1 pick=2 pick=3"
+      );
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
   it("generates independent values for repeated occurrences in a single pass", () => {
     const parameters: ParameterConfig[] = [
       { name: "pick", type: "integer", enabled: true, min: 1, max: 3 }

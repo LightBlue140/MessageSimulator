@@ -3,8 +3,16 @@ import { generateRandomValue } from "./random.js";
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const stringifyAssignmentValue = (value: unknown) => {
+const stringifyAssignmentValue = (value: unknown, quote?: "\"" | "'") => {
   if (typeof value === "string") {
+    if (quote === "\"") {
+      return `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`;
+    }
+
+    if (quote === "'") {
+      return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+    }
+
     return value;
   }
 
@@ -40,12 +48,17 @@ const replaceJsonValue = (
 const replaceAssignments = (template: string, parameters: ParameterConfig[]) =>
   parameters.reduce((message, parameter) => {
     const pattern = new RegExp(
-      `(^|[^A-Za-z0-9_])(${escapeRegExp(parameter.name)}\\s*=\\s*)(?:"[^"]*"|'[^']*'|[^\\s,;]+)`,
+      `(^|[^A-Za-z0-9_])(${escapeRegExp(parameter.name)}\\s*=\\s*)("(?:(?:\\\\.)|[^"\\\\])*"|'(?:(?:\\\\.)|[^'\\\\])*'|[^\\s,;]+)`,
       "g"
     );
 
-    return message.replace(pattern, (match, prefix: string, assignment: string) => {
-      const value = stringifyAssignmentValue(generateRandomValue(parameter));
+    return message.replace(pattern, (_match, prefix: string, assignment: string, originalValue: string) => {
+      const quote = originalValue.startsWith("\"")
+        ? "\""
+        : originalValue.startsWith("'")
+          ? "'"
+          : undefined;
+      const value = stringifyAssignmentValue(generateRandomValue(parameter), quote);
       return `${prefix}${assignment}${value}`;
     });
   }, template);
