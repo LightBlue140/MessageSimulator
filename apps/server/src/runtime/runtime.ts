@@ -6,6 +6,8 @@ import { RecentLogs, type LogEntry } from "./logs.js";
 
 type Protocol = SimulatorConfig["protocol"];
 
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 interface ActiveSimulator {
   adapter: SimulatorAdapter;
   config: SimulatorConfig;
@@ -64,7 +66,14 @@ export class SimulatorRuntime {
       this.logs.add("info", `Simulator started using ${config.protocol}`);
     } catch (error) {
       clearInterval(active.timer);
-      this.active = undefined;
+      try {
+        await adapter.stop();
+      } catch (cleanupError) {
+        this.logs.add("error", `Failed to clean up simulator after start failure: ${errorMessage(cleanupError)}`);
+      } finally {
+        this.active = undefined;
+      }
+
       throw error;
     }
   }
@@ -76,8 +85,14 @@ export class SimulatorRuntime {
       return;
     }
 
+    try {
+      await active.adapter.stop();
+    } catch (error) {
+      this.logs.add("error", `Failed to stop simulator: ${errorMessage(error)}`);
+      return;
+    }
+
     clearInterval(active.timer);
-    await active.adapter.stop();
     this.logs.add("info", "Simulator stopped");
     this.active = undefined;
   }

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SimulatorConfig } from "../src/config/schema.js";
 import { defaultConfig } from "../src/config/schema.js";
 import type { AdapterContext, AdapterStatus, SimulatorAdapter } from "../src/adapters/types.js";
@@ -9,14 +9,25 @@ class TestAdapter implements SimulatorAdapter {
   public stops = 0;
   public context?: AdapterContext;
   public status: AdapterStatus = { connectedClients: 1, requestCount: 2 };
+  public startError?: Error;
+  public stopErrors: Error[] = [];
 
   async start(context: AdapterContext) {
     this.starts += 1;
     this.context = context;
+
+    if (this.startError !== undefined) {
+      throw this.startError;
+    }
   }
 
   async stop() {
     this.stops += 1;
+
+    const error = this.stopErrors.shift();
+    if (error !== undefined) {
+      throw error;
+    }
   }
 
   getStatus() {
@@ -33,6 +44,11 @@ const testConfig = (overrides: Partial<SimulatorConfig> = {}): SimulatorConfig =
 });
 
 describe("SimulatorRuntime", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
   it("creates the first snapshot and starts the selected adapter", async () => {
     const adapter = new TestAdapter();
     const runtime = new SimulatorRuntime({ http: adapter });
@@ -116,7 +132,59 @@ describe("SimulatorRuntime", () => {
       expect(runtime.getStatus().logs).toHaveLength(initialLogCount);
     } finally {
       await runtime.stop();
-      vi.useRealTimers();
     }
+  });
+
+  it("cleans up the adapter and reports stopped when adapter start fails", async () => {
+    const adapter = new TestAdapter();
+    adapter.startError = new Error("start failed");
+    const runtime = new SimulatorRuntime({ http: adapter });
+
+    await expect(runtime.start(testConfig())).rejects.toThrow("start failed");
+
+    expect(adapter.stops).toBe(1);
+    expect(runtime.getStatus()).toMatchObject({
+      running: false,
+      protocol: undefined,
+      lastMessage: undefined,
+      adapterStatus: undefined
+    });
+  });
+
+  it("keeps running and allows retry when adapter stop fails", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    vi.spyOn(Math, "random").mockReturnValueOnce(0).mockReturnValueOnce(0.99);
+
+    const adapter = new TestAdapter();
+    adapter.stopErrors.push(new Error("stop failed"));
+    const runtime = new SimulatorRuntime({ http: adapter });
+
+    await runtime.start(
+      testConfig({
+        randomizeIntervalSeconds: 0.1,
+        parameters: [{ name: "aa", type: "integer", enabled: true, min: 1, max: 3 }]
+      })
+    );
+
+    await runtime.stop();
+
+    expect(runtime.getStatus()).toMatchObject({
+      running: true,
+      protocol: "http"
+    });
+    expect(runtime.getStatus().logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ level: "error", message: "Failed to stop simulator: stop failed" })
+      ])
+    );
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(runtime.getStatus().lastMessage).toBe("{\"aa\":3}");
+
+    await runtime.stop();
+
+    expect(adapter.stops).toBe(2);
+    expect(runtime.getStatus().running).toBe(false);
   });
 });
