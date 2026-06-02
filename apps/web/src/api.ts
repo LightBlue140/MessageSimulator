@@ -2,6 +2,17 @@ import type { SimulatorConfig } from "./types";
 
 const baseUrl = "/api";
 
+export async function isBackendAvailable() {
+  const protocol = window.location.protocol === "https:" ? "https" : "http";
+  const host = window.location.hostname || "localhost";
+  try {
+    const response = await fetch(`${protocol}://${host}:3001/health`);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function getConfig() {
   const response = await fetch(`${baseUrl}/config`);
   if (!response.ok) {

@@ -7,7 +7,9 @@
 body {
   margin: 0;
   min-width: 320px;
+  height: 100vh;
   background: #f8fafc;
+  overflow: hidden;
 }
 
 button,
@@ -41,28 +43,25 @@ button:hover {
 
 .app-shell {
   box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 14px;
   min-height: 100vh;
+  height: 100vh;
   padding: 24px;
 }
 
-.hero {
+.topbar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin: 0 auto 16px;
-  max-width: 1440px;
 }
 
-.hero h1 {
+.topbar h1 {
   margin: 4px 0;
   color: #0f172a;
-  font-size: 32px;
-}
-
-.hero p {
-  margin: 0;
-  color: #475569;
+  font-size: 28px;
 }
 
 .eyebrow {
@@ -83,22 +82,39 @@ button:hover {
 
 .toolbar {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  margin: 0 auto 16px;
-  max-width: 1440px;
 }
 
-.workspace-grid {
+.action-group,
+.view-switcher {
+  display: flex;
+  gap: 10px;
+}
+
+.active-tab {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.editor-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(420px, 1fr);
+  grid-template-columns: minmax(280px, 360px) minmax(520px, 1fr);
   gap: 16px;
-  margin: 0 auto;
-  max-width: 1440px;
+  min-height: 0;
 }
 
-.template-panel,
-.logs-panel {
-  grid-column: 1 / -1;
+.scroll-region {
+  min-height: 0;
+  overflow: auto;
+}
+
+.resizable-panel {
+  resize: both;
+  min-width: 320px;
+  min-height: 260px;
 }
 
 .section-title h2,
@@ -138,7 +154,7 @@ textarea:focus {
 }
 
 .template-editor {
-  min-height: 420px;
+  min-height: min(64vh, 680px);
   resize: vertical;
   font-family: "Cascadia Code", "Consolas", monospace;
   line-height: 1.55;
@@ -152,7 +168,7 @@ textarea:focus {
 
 .connection-grid {
   display: grid;
-  grid-template-columns: 128px minmax(0, 1fr);
+  grid-template-columns: 104px minmax(0, 1fr);
   gap: 10px 14px;
   margin: 0;
 }
@@ -189,14 +205,89 @@ legend {
   font-weight: 700;
 }
 
+.connection-panel {
+  border: 0;
+  box-shadow: none;
+  margin-top: 16px;
+  padding: 0;
+}
+
+.preview-panel {
+  margin-top: 16px;
+}
+
+.params-page {
+  justify-self: stretch;
+}
+
+.parameter-row {
+  display: grid;
+  grid-template-columns: 130px minmax(140px, 1fr) minmax(130px, 0.9fr) auto repeat(3, minmax(110px, 0.7fr)) auto;
+  align-items: end;
+  gap: 10px;
+  overflow-x: auto;
+}
+
+.parameter-row legend {
+  padding: 0 4px;
+}
+
+.parameter-row label {
+  margin: 0;
+}
+
+.parameter-row button {
+  white-space: nowrap;
+}
+
+.vector-row {
+  display: contents;
+}
+
+.vector-row h3 {
+  align-self: center;
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.preview-panel pre,
+.log-page pre {
+  white-space: pre-wrap;
+}
+
 @media (max-width: 900px) {
-  .hero,
-  .toolbar {
+  body {
+    height: auto;
+    overflow: auto;
+  }
+
+  .app-shell {
+    height: auto;
+  }
+
+  .topbar,
+  .toolbar,
+  .action-group,
+  .view-switcher {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .workspace-grid {
+  .editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .scroll-region {
+    overflow: visible;
+  }
+
+  .resizable-panel {
+    resize: vertical;
+    min-width: 0;
+  }
+
+  .parameter-row {
     grid-template-columns: 1fr;
   }
 }

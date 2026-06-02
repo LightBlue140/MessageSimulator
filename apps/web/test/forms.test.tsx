@@ -15,12 +15,20 @@ describe("dynamic forms", () => {
   it("shows vector component controls after parameter type switch", () => {
     render(<App />);
 
+    fireEvent.click(screen.getByText("参数页"));
     fireEvent.click(screen.getByText("新增参数"));
     fireEvent.change(screen.getByLabelText("参数类型 param2"), { target: { value: "vector" } });
 
     expect(screen.getByText("分量")).toBeInTheDocument();
     expect(screen.getByLabelText("分量名 x")).toBeInTheDocument();
     expect(screen.getByText("新增分量")).toBeInTheDocument();
+  });
+
+  it("shows each custom parameter as a single row", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("参数页"));
+    expect(screen.getByLabelText("参数 aa")).toHaveClass("parameter-row");
   });
 
   it("marks send interval unused for HTTP", () => {

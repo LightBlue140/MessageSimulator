@@ -16,7 +16,12 @@ echo.
 echo [1/2] Qi Dong Hou Duan...
 start "Server" cmd /k "cd /d %ROOT% && npm run dev"
 
-ping -n 3 127.0.0.1 >nul
+node scripts\wait-for-url.mjs http://localhost:3001/health 30
+if errorlevel 1 (
+  echo Backend did not become ready. Check the Server window.
+  pause
+  exit /b 1
+)
 
 echo [2/2] Qi Dong Qian Duan...
 start "Web" cmd /k "cd /d %ROOT% && npm run dev:web"

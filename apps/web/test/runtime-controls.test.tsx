@@ -1,17 +1,60 @@
 import { render, screen } from "@testing-library/react";
 import { within } from "@testing-library/dom";
 import { fireEvent } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 
 describe("runtime controls", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("does not request proxied config when the backend is offline", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("offline"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/config");
+  });
+
   it("shows start stop preview and logs controls", () => {
     render(<App />);
 
     expect(screen.getByText("启动")).toBeInTheDocument();
     expect(screen.getByText("停止")).toBeInTheDocument();
     expect(screen.getByText("预览生成消息")).toBeInTheDocument();
-    expect(screen.getByText("日志")).toBeInTheDocument();
+    expect(screen.getByText("参数页")).toBeInTheDocument();
+    expect(screen.getByText("日志页")).toBeInTheDocument();
+  });
+
+  it("places config and message in independent scroll regions", () => {
+    render(<App />);
+
+    expect(screen.getByLabelText("配置区")).toHaveClass("scroll-region");
+    expect(screen.getByLabelText("消息区")).toHaveClass("scroll-region", "resizable-panel");
+    expect(screen.queryByLabelText("参数页内容")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("日志页内容")).not.toBeInTheDocument();
+  });
+
+  it("switches parameters into a separate page", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("参数页"));
+
+    expect(screen.getByLabelText("参数页内容")).toHaveClass("scroll-region", "resizable-panel");
+    expect(screen.queryByLabelText("编辑工作区")).not.toBeInTheDocument();
+  });
+
+  it("switches logs into a separate page", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("日志页"));
+
+    expect(screen.getByLabelText("日志页内容")).toBeInTheDocument();
+    expect(screen.queryByLabelText("编辑工作区")).not.toBeInTheDocument();
   });
 
   it("shows protocol-specific connection instructions", () => {

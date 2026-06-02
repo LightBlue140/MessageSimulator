@@ -45,9 +45,16 @@ export function ParameterEditor({ parameters, onChange }: ParameterEditorProps) 
 
   return (
     <section>
-      <h2>自定义参数</h2>
+      <div className="section-title">
+        <span className="eyebrow">Parameters</span>
+        <h2>自定义参数</h2>
+      </div>
       {parameters.map((parameter, index) => (
-        <fieldset key={`${parameter.name}-${index}`}>
+        <fieldset
+          aria-label={`参数 ${parameter.name}`}
+          className="parameter-row"
+          key={`${parameter.name}-${index}`}
+        >
           <legend>{parameter.name}</legend>
           <label>
             参数名 {parameter.name}
@@ -143,7 +150,7 @@ export function ParameterEditor({ parameters, onChange }: ParameterEditorProps) 
             </label>
           )}
           {parameter.type === "vector" && (
-            <div>
+            <div className="vector-row">
               <h3>分量</h3>
               {parameter.components.map((component, componentIndex) => (
                 <label key={`${component.name}-${componentIndex}`}>
