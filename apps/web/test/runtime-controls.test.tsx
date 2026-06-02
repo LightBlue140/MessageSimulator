@@ -23,9 +23,13 @@ describe("runtime controls", () => {
   it("shows start stop preview and logs controls", () => {
     render(<App />);
 
+    expect(screen.getByLabelText("配置保存路径")).toBeInTheDocument();
+    expect(screen.getByLabelText("配置保存路径")).toHaveAttribute("placeholder", "save/config.json");
     expect(screen.getByText("启动")).toBeInTheDocument();
     expect(screen.getByText("停止")).toBeInTheDocument();
     expect(screen.getByText("预览生成消息")).toBeInTheDocument();
+    expect(screen.getByText("保存配置文件")).toBeInTheDocument();
+    expect(screen.getByText("加载配置文件")).toBeInTheDocument();
     expect(screen.getByText("参数页")).toBeInTheDocument();
     expect(screen.getByText("日志页")).toBeInTheDocument();
   });

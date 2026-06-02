@@ -33,6 +33,30 @@ export async function saveConfig(config: SimulatorConfig) {
   return response.json();
 }
 
+export async function saveConfigFile(config: SimulatorConfig, path: string) {
+  const response = await fetch(`${baseUrl}/config-file/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, config })
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json() as Promise<{ path: string; config: SimulatorConfig }>;
+}
+
+export async function loadConfigFile(path: string) {
+  const response = await fetch(`${baseUrl}/config-file/load`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path })
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json() as Promise<{ path: string; config: SimulatorConfig }>;
+}
+
 export async function startSimulator() {
   const response = await fetch(`${baseUrl}/start`, { method: "POST" });
   if (!response.ok) {

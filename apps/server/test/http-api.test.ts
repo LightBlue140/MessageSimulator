@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -13,7 +13,10 @@ import { RecentLogs } from "../src/runtime/logs.js";
 const createApp = async () => {
   const dir = await mkdtemp(join(tmpdir(), "sim-api-"));
   const app = Fastify();
-  await registerRoutes(app, { configStore: new ConfigStore(join(dir, "config.json")) });
+  await registerRoutes(app, {
+    configStore: new ConfigStore(join(dir, "config.json")),
+    defaultSavePath: join(dir, "save", "config.json")
+  });
 
   return { app, dir };
 };
@@ -43,6 +46,73 @@ describe("management API", () => {
     expect(save.json()).toEqual(config);
     expect(load.statusCode).toBe(200);
     expect(load.json()).toEqual(config);
+  });
+
+  it("saves and loads config files from a selected path", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const filePath = join(dir, "presets", "custom.json");
+    const config = { ...defaultConfig, messageTemplate: "from-file={aa}" };
+
+    const save = await app.inject({
+      method: "POST",
+      url: "/api/config-file/save",
+      payload: { path: filePath, config }
+    });
+    const load = await app.inject({
+      method: "POST",
+      url: "/api/config-file/load",
+      payload: { path: filePath }
+    });
+
+    expect(save.statusCode).toBe(200);
+    expect(save.json()).toEqual({ path: filePath, config });
+    expect(JSON.parse(await readFile(filePath, "utf8"))).toEqual(config);
+    expect(load.statusCode).toBe(200);
+    expect(load.json()).toEqual({ path: filePath, config });
+  });
+
+  it("uses the default save folder when no config file path is provided", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const config = { ...defaultConfig, messageTemplate: "default-save={aa}" };
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/config-file/save",
+      payload: { config }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ path: join(dir, "save", "config.json"), config });
+  });
+
+  it("does not save runtime logs in config files", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const filePath = join(dir, "save", "without-logs.json");
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/config-file/save",
+      payload: {
+        path: filePath,
+        config: { ...defaultConfig, logs: [{ level: "info", message: "should not persist" }] }
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(await readFile(filePath, "utf8"))).not.toHaveProperty("logs");
   });
 
   it("returns stopped runtime status before start and after stop", async () => {

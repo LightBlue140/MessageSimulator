@@ -4,6 +4,7 @@ coverage/
 .vite/
 data/
 apps/server/data/
+save/
 
 .env
 .env.*

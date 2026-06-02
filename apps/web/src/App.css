@@ -90,7 +90,13 @@ button:hover {
 .action-group,
 .view-switcher {
   display: flex;
+  align-items: center;
   gap: 10px;
+}
+
+.file-path-control {
+  min-width: 280px;
+  margin: 0;
 }
 
 .active-tab {

@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import {
   getConfig,
   isBackendAvailable,
+  loadConfigFile,
   previewMessage,
   saveConfig,
+  saveConfigFile,
   startSimulator,
   stopSimulator
 } from "./api";
@@ -29,6 +31,7 @@ export function App() {
   const [status, setStatus] = useState<RuntimeStatus>({ running: false, logs: [] });
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
+  const [configFilePath, setConfigFilePath] = useState("");
   const [view, setView] = useState<"editor" | "parameters" | "logs">("editor");
 
   useEffect(() => {
@@ -74,6 +77,20 @@ export function App() {
       setStatus(await stopSimulator());
     });
 
+  const handleSaveConfigFile = () =>
+    runAction(async () => {
+      const result = await saveConfigFile(config, configFilePath);
+      setConfigFilePath(result.path);
+    });
+
+  const handleLoadConfigFile = () =>
+    runAction(async () => {
+      const result = await loadConfigFile(configFilePath);
+      setConfig(result.config);
+      setConfigFilePath(result.path);
+      setView("editor");
+    });
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -84,6 +101,14 @@ export function App() {
         <StatusPanel running={status.running} />
       </header>
       <section className="toolbar panel" aria-label="操作区">
+        <label className="file-path-control">
+          配置保存路径
+          <input
+            placeholder="save/config.json"
+            value={configFilePath}
+            onChange={(event) => setConfigFilePath(event.target.value)}
+          />
+        </label>
         <div className="action-group">
           <button className="primary-action" type="button" onClick={handleStart}>
             启动
@@ -93,6 +118,12 @@ export function App() {
           </button>
           <button type="button" onClick={handlePreview}>
             预览生成消息
+          </button>
+          <button type="button" onClick={handleSaveConfigFile}>
+            保存配置文件
+          </button>
+          <button type="button" onClick={handleLoadConfigFile}>
+            加载配置文件
           </button>
         </div>
         <div className="view-switcher">
