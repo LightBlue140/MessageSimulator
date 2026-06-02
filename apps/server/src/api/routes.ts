@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { ZodError } from "zod";
 import { HttpAdapter } from "../adapters/http.js";
+import { TcpAdapter } from "../adapters/tcp.js";
+import { WebSocketAdapter } from "../adapters/websocket.js";
 import { simulatorConfigSchema, type SimulatorConfig } from "../config/schema.js";
 import { ConfigStore } from "../config/store.js";
 import { SimulatorRuntime } from "../runtime/runtime.js";
@@ -12,7 +14,12 @@ export interface RegisterRoutesOptions {
 
 const defaultConfigPath = process.env.SIMULATOR_CONFIG_PATH ?? "data/config.json";
 
-const createDefaultRuntime = () => new SimulatorRuntime({ http: new HttpAdapter() });
+const createDefaultRuntime = () =>
+  new SimulatorRuntime({
+    http: new HttpAdapter(),
+    websocket: new WebSocketAdapter(),
+    tcp: new TcpAdapter()
+  });
 
 const sendValidationError = (reply: FastifyReply, error: ZodError) =>
   reply.status(400).send({ error: "Invalid simulator config", issues: error.issues });
