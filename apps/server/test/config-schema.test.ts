@@ -22,4 +22,46 @@ describe("simulatorConfigSchema", () => {
       })
     ).toThrow();
   });
+
+  it("rejects duplicate top-level parameter names", () => {
+    expect(() =>
+      simulatorConfigSchema.parse({
+        ...defaultConfig,
+        parameters: [
+          { name: "aa", type: "integer", enabled: true, min: 0, max: 999 },
+          { name: "aa", type: "float", enabled: true, min: 0, max: 1, decimals: 2 }
+        ]
+      })
+    ).toThrow();
+  });
+
+  it("rejects duplicate vector component names", () => {
+    expect(() =>
+      simulatorConfigSchema.parse({
+        ...defaultConfig,
+        parameters: [
+          {
+            name: "pos",
+            type: "vector",
+            enabled: true,
+            components: [
+              { name: "x", min: 0, max: 1, decimals: 2 },
+              { name: "x", min: 0, max: 1, decimals: 2 }
+            ]
+          }
+        ]
+      })
+    ).toThrow();
+  });
+
+  it("rejects a parameter range with max below min", () => {
+    expect(() =>
+      simulatorConfigSchema.parse({
+        ...defaultConfig,
+        parameters: [
+          { name: "aa", type: "integer", enabled: true, min: 10, max: 1 }
+        ]
+      })
+    ).toThrow();
+  });
 });

@@ -9,6 +9,9 @@ const numberRange = {
   max: z.number()
 };
 
+const hasUniqueNames = (values: Array<{ name: string }>) =>
+  new Set(values.map((value) => value.name)).size === values.length;
+
 const integerParameterSchema = z.object({
   name: parameterName,
   type: z.literal("integer"),
@@ -54,7 +57,10 @@ export const parameterSchema = z
       name: parameterName,
       type: z.literal("vector"),
       enabled: z.boolean(),
-      components: z.array(vectorComponentSchema).min(1)
+      components: z
+        .array(vectorComponentSchema)
+        .min(1)
+        .refine(hasUniqueNames, "component names must be unique")
     })
   ])
   .superRefine((value, ctx) => {
@@ -87,14 +93,16 @@ export const serverSettingsSchema = z.object({
   })
 });
 
-export const simulatorConfigSchema = z.object({
-  protocol: protocolSchema,
-  serverSettings: serverSettingsSchema,
-  messageTemplate: z.string(),
-  parameters: z.array(parameterSchema),
-  sendIntervalSeconds: seconds,
-  randomizeIntervalSeconds: seconds
-});
+export const simulatorConfigSchema = z
+  .object({
+    protocol: protocolSchema,
+    serverSettings: serverSettingsSchema,
+    messageTemplate: z.string(),
+    parameters: z.array(parameterSchema),
+    sendIntervalSeconds: seconds,
+    randomizeIntervalSeconds: seconds
+  })
+  .refine((value) => hasUniqueNames(value.parameters), "parameter names must be unique");
 
 export type SimulatorConfig = z.infer<typeof simulatorConfigSchema>;
 export type ParameterConfig = z.infer<typeof parameterSchema>;
