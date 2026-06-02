@@ -16,7 +16,14 @@ export interface SimulatorConfig {
   protocol: Protocol;
   serverSettings: {
     http: { port: number; path: string; contentType: string };
-    mqtt: { port: number; topic: string; qos: 0 | 1 | 2; retain: boolean };
+    mqtt: {
+      port: number;
+      topic: string;
+      qos: 0 | 1 | 2;
+      retain: boolean;
+      username?: string;
+      password?: string;
+    };
     websocket: { port: number; path: string };
     tcp: { port: number; appendNewline: boolean; encoding: "utf8" | "ascii" };
     opcua: {
@@ -31,6 +38,12 @@ export interface SimulatorConfig {
   parameters: ParameterConfig[];
   sendIntervalSeconds: number;
   randomizeIntervalSeconds: number;
+}
+
+export interface AdapterStatus {
+  connectedClients?: number;
+  requestCount?: number;
+  listenAddress?: string;
 }
 
 export const defaultConfig: SimulatorConfig = {

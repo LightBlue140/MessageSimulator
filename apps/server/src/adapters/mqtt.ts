@@ -1,5 +1,6 @@
-import { createServer, type Server } from "node:net";
-import { createBroker } from "aedes";
+import { createServer, type AddressInfo, type Server } from "node:net";
+import aedes from "aedes";
+const { createBroker } = aedes;
 import type { AdapterContext, AdapterStatus, SimulatorAdapter } from "./types.js";
 
 export class MqttAdapter implements SimulatorAdapter {
@@ -7,10 +8,20 @@ export class MqttAdapter implements SimulatorAdapter {
   private server?: Server;
   private timer?: ReturnType<typeof setInterval>;
   private connectedClients = 0;
+  private listenAddress?: string;
 
   async start(context: AdapterContext): Promise<void> {
     const settings = context.config.serverSettings.mqtt;
     this.broker = createBroker();
+    this.broker.authenticate = (_client, username, password, done) => {
+      if (!settings.username && !settings.password) {
+        done(null, true);
+        return;
+      }
+
+      const passwordText = password?.toString();
+      done(null, username === settings.username && passwordText === settings.password);
+    };
     this.broker.on("client", () => {
       this.connectedClients += 1;
       context.logs.add("info", "MQTT client connected");
@@ -24,6 +35,7 @@ export class MqttAdapter implements SimulatorAdapter {
     await new Promise<void>((resolve) => {
       this.server!.listen(settings.port, "127.0.0.1", resolve);
     });
+    this.listenAddress = this.addressFromServer();
 
     this.timer = setInterval(() => {
       this.broker?.publish(
@@ -57,9 +69,19 @@ export class MqttAdapter implements SimulatorAdapter {
     this.server = undefined;
     this.broker = undefined;
     this.connectedClients = 0;
+    this.listenAddress = undefined;
   }
 
   getStatus(): AdapterStatus {
-    return { connectedClients: this.connectedClients };
+    return { connectedClients: this.connectedClients, listenAddress: this.listenAddress };
+  }
+
+  private addressFromServer() {
+    const address = this.server?.address();
+    if (address === undefined || address === null || typeof address === "string") {
+      return undefined;
+    }
+    const { address: host, port } = address as AddressInfo;
+    return `mqtt://${host}:${port}`;
   }
 }

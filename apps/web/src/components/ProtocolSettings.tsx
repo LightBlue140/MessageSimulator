@@ -98,6 +98,31 @@ export function ProtocolSettings({ config, setConfig }: ProtocolSettingsProps) {
             />
             Retain
           </label>
+          <label>
+            用户名
+            <input
+              value={config.serverSettings.mqtt.username ?? ""}
+              onChange={(event) =>
+                updateSettings("mqtt", {
+                  ...config.serverSettings.mqtt,
+                  username: event.target.value || undefined
+                })
+              }
+            />
+          </label>
+          <label>
+            密码
+            <input
+              type="password"
+              value={config.serverSettings.mqtt.password ?? ""}
+              onChange={(event) =>
+                updateSettings("mqtt", {
+                  ...config.serverSettings.mqtt,
+                  password: event.target.value || undefined
+                })
+              }
+            />
+          </label>
         </>
       )}
       {config.protocol === "websocket" && (

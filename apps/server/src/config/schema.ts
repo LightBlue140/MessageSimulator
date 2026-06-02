@@ -80,7 +80,9 @@ export const serverSettingsSchema = z.object({
     port,
     topic: z.string().min(1),
     qos: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-    retain: z.boolean()
+    retain: z.boolean(),
+    username: z.string().optional(),
+    password: z.string().optional()
   }),
   websocket: z.object({ port, path: z.string().startsWith("/") }),
   tcp: z.object({ port, appendNewline: z.boolean(), encoding: z.enum(["utf8", "ascii"]) }),

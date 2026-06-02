@@ -64,4 +64,21 @@ describe("simulatorConfigSchema", () => {
       })
     ).toThrow();
   });
+
+  it("accepts optional MQTT credentials", () => {
+    const parsed = simulatorConfigSchema.parse({
+      ...defaultConfig,
+      serverSettings: {
+        ...defaultConfig.serverSettings,
+        mqtt: {
+          ...defaultConfig.serverSettings.mqtt,
+          username: "operator",
+          password: "secret"
+        }
+      }
+    });
+
+    expect(parsed.serverSettings.mqtt.username).toBe("operator");
+    expect(parsed.serverSettings.mqtt.password).toBe("secret");
+  });
 });

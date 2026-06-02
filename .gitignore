@@ -2,6 +2,8 @@ node_modules/
 dist/
 coverage/
 .vite/
+data/
+apps/server/data/
 
 .env
 .env.*

@@ -2,6 +2,14 @@ import type { SimulatorConfig } from "./types";
 
 const baseUrl = "/api";
 
+export async function getConfig() {
+  const response = await fetch(`${baseUrl}/config`);
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json() as Promise<SimulatorConfig>;
+}
+
 export async function saveConfig(config: SimulatorConfig) {
   const response = await fetch(`${baseUrl}/config`, {
     method: "PUT",

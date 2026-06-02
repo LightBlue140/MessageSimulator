@@ -10,7 +10,8 @@ export function MessageTemplate({
       <h2>消息模板</h2>
       <textarea
         aria-label="消息模板内容"
-        rows={8}
+        rows={16}
+        className="template-editor"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
