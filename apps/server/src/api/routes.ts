@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { ZodError } from "zod";
 import { HttpAdapter } from "../adapters/http.js";
+import { MqttAdapter } from "../adapters/mqtt.js";
+import { OpcUaAdapter } from "../adapters/opcua.js";
 import { TcpAdapter } from "../adapters/tcp.js";
 import { WebSocketAdapter } from "../adapters/websocket.js";
 import { simulatorConfigSchema, type SimulatorConfig } from "../config/schema.js";
@@ -18,7 +20,9 @@ const createDefaultRuntime = () =>
   new SimulatorRuntime({
     http: new HttpAdapter(),
     websocket: new WebSocketAdapter(),
-    tcp: new TcpAdapter()
+    tcp: new TcpAdapter(),
+    mqtt: new MqttAdapter(),
+    opcua: new OpcUaAdapter()
   });
 
 const sendValidationError = (reply: FastifyReply, error: ZodError) =>
