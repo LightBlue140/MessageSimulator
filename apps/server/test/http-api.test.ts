@@ -62,6 +62,26 @@ describe("management API", () => {
     expect(stopped.json()).toMatchObject({ running: false });
     expect(stopped.json().adapterStatus).toBeUndefined();
   });
+
+  it("previews a generated message without starting the simulator", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/preview",
+      payload: {
+        ...defaultConfig,
+        parameters: [{ name: "aa", type: "integer", enabled: true, min: 5, max: 5 }]
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ message: "{\"aa\":5}" });
+  });
 });
 
 describe("HttpAdapter", () => {

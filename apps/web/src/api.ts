@@ -29,3 +29,15 @@ export async function stopSimulator() {
   }
   return response.json();
 }
+
+export async function previewMessage(config: SimulatorConfig) {
+  const response = await fetch(`${baseUrl}/preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config)
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json() as Promise<{ message: string }>;
+}

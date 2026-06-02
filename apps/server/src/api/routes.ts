@@ -7,6 +7,7 @@ import { TcpAdapter } from "../adapters/tcp.js";
 import { WebSocketAdapter } from "../adapters/websocket.js";
 import { simulatorConfigSchema, type SimulatorConfig } from "../config/schema.js";
 import { ConfigStore } from "../config/store.js";
+import { generateMessageSnapshot } from "../generator/replacement.js";
 import { SimulatorRuntime } from "../runtime/runtime.js";
 
 export interface RegisterRoutesOptions {
@@ -53,6 +54,16 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
   });
 
   app.get("/api/status", async () => runtime.getStatus());
+
+  app.post("/api/preview", async (request, reply) => {
+    const parsed = simulatorConfigSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error);
+    }
+
+    return { message: generateMessageSnapshot(parsed.data.messageTemplate, parsed.data.parameters) };
+  });
 
   app.post("/api/start", async () => {
     await runtime.start(await loadCurrentConfig());
