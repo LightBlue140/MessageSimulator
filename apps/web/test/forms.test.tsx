@@ -49,9 +49,22 @@ describe("dynamic forms", () => {
 
     fireEvent.click(screen.getByText("参数页"));
     fireEvent.change(screen.getByLabelText("参数类型 aa"), { target: { value: "string" } });
-    fireEvent.change(screen.getByLabelText("候选值 aa"), { target: { value: "one\ntwo" } });
+    fireEvent.change(screen.getByLabelText("候选值 aa"), { target: { value: "one\ntwo\n" } });
 
-    expect(screen.getByLabelText("候选值 aa")).toHaveValue("one\ntwo");
+    expect(screen.getByLabelText("候选值 aa")).toHaveValue("one\ntwo\n");
+  });
+
+  it("edits the service name from the dashboard and configuration page", () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("服务名称 服务 1"), { target: { value: "MQTT 服务" } });
+    expect(screen.getByLabelText("服务名称 MQTT 服务")).toHaveValue("MQTT 服务");
+
+    fireEvent.click(screen.getByText("进入配置"));
+    fireEvent.change(screen.getByLabelText("服务名称"), { target: { value: "TCP 服务" } });
+    fireEvent.click(screen.getByText("返回首页"));
+
+    expect(screen.getByLabelText("服务名称 TCP 服务")).toHaveValue("TCP 服务");
   });
 
   it("marks send interval unused for HTTP", () => {

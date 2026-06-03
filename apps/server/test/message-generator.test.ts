@@ -110,6 +110,24 @@ describe("generateMessageSnapshot", () => {
 });
 
 describe("generateRandomValue", () => {
+  it("ignores empty string candidates caused by trailing textarea lines", () => {
+    const parameter: ParameterConfig = {
+      name: "status",
+      type: "string",
+      enabled: true,
+      candidates: ["ready", ""]
+    };
+
+    const originalRandom = Math.random;
+    Math.random = () => 0.99;
+
+    try {
+      expect(generateRandomValue(parameter)).toBe("ready");
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
   it("generates vector objects from component ranges", () => {
     const parameter: ParameterConfig = {
       name: "position",

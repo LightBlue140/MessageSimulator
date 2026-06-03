@@ -131,7 +131,7 @@ export function ParameterEditor({ parameters, onChange }: ParameterEditorProps) 
                 onChange={(event) =>
                   updateParameter(index, {
                     ...parameter,
-                    candidates: event.target.value.split(/\r?\n/).filter((candidate) => candidate.length > 0)
+                    candidates: event.target.value.split(/\r?\n/)
                   })
                 }
               />

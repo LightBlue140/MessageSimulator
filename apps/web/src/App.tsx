@@ -107,6 +107,14 @@ export function App() {
     });
   };
 
+  const updateServiceName = (serviceId: string, name: string) => {
+    setAppConfig({
+      services: appConfig.services.map((service) =>
+        service.id === serviceId ? { ...service, name } : service
+      )
+    });
+  };
+
   const handleStartAll = () =>
     runAction(async () => {
       setPendingAction("start-all");
@@ -231,6 +239,7 @@ export function App() {
             setSelectedServiceId(serviceId);
             setDetailView("editor");
           }}
+          onRename={updateServiceName}
           onStart={handleStartService}
           onStartAll={handleStartAll}
           onStop={handleStopService}
@@ -251,6 +260,7 @@ export function App() {
           onChange={updateSelectedConfig}
           onClosePreview={() => setPreview("")}
           onLoad={() => setConfigFileDialogMode("load")}
+          onNameChange={(name) => updateServiceName(selectedService.id, name)}
           onPreview={handlePreview}
           onSave={() => setConfigFileDialogMode("save")}
           onViewChange={setDetailView}
@@ -307,6 +317,7 @@ function ServiceDashboard({
   onLoad,
   onSave,
   onSelect,
+  onRename,
   onStart,
   onStartAll,
   onStop,
@@ -325,6 +336,7 @@ function ServiceDashboard({
   onLoad: () => void;
   onSave: () => void;
   onSelect: (serviceId: string) => void;
+  onRename: (serviceId: string, name: string) => void;
   onStart: (serviceId: string) => void;
   onStartAll: () => void;
   onStop: (serviceId: string) => void;
@@ -377,7 +389,13 @@ function ServiceDashboard({
               <article className="service-card" key={service.id}>
                 <div>
                   <span className={running ? "status-pill running" : "status-pill"}>{running ? "运行中" : "已停止"}</span>
-                  <h3>{service.name}</h3>
+                  <label className="service-name-field">
+                    服务名称 {service.name}
+                    <input
+                      value={service.name}
+                      onChange={(event) => onRename(service.id, event.target.value)}
+                    />
+                  </label>
                   <p>{service.config.protocol.toUpperCase()}</p>
                 </div>
                 <ConnectionInfo config={service.config} adapterStatus={status?.adapterStatus} compact />
@@ -442,6 +460,7 @@ function ServiceDetail({
   onChange,
   onClosePreview,
   onLoad,
+  onNameChange,
   onPreview,
   onSave,
   onViewChange
@@ -454,6 +473,7 @@ function ServiceDetail({
   onChange: (config: SimulatorConfig) => void;
   onClosePreview: () => void;
   onLoad: () => void;
+  onNameChange: (name: string) => void;
   onPreview: () => void;
   onSave: () => void;
   onViewChange: (view: DetailView) => void;
@@ -490,6 +510,10 @@ function ServiceDetail({
               <span className="eyebrow">{serviceName}</span>
               <h2>协议配置</h2>
             </div>
+            <label>
+              服务名称
+              <input value={serviceName} onChange={(event) => onNameChange(event.target.value)} />
+            </label>
             <ProtocolSettings config={config} setConfig={onChange} />
             <div className="interval-grid">
               <label>

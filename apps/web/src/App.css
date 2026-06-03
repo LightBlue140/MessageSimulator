@@ -148,6 +148,10 @@ button:disabled {
   font-size: 18px;
 }
 
+.service-name-field {
+  margin: 8px 0 2px;
+}
+
 .service-card p {
   margin: 0;
   color: #64748b;
