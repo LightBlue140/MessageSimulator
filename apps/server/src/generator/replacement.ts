@@ -19,31 +19,23 @@ const stringifyAssignmentValue = (value: unknown, quote?: "\"" | "'") => {
   return JSON.stringify(value);
 };
 
-const replaceJsonValue = (
-  value: unknown,
-  parametersByName: ReadonlyMap<string, ParameterConfig>
-): unknown => {
-  if (Array.isArray(value)) {
-    return value.map((item) => replaceJsonValue(item, parametersByName));
-  }
+const stringifyJsonValue = (value: unknown) => JSON.stringify(value);
 
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => {
-        const parameter = parametersByName.get(key);
-
-        return [
-          key,
-          parameter === undefined
-            ? replaceJsonValue(item, parametersByName)
-            : generateRandomValue(parameter)
-        ];
-      })
+const replaceJsonFields = (template: string, parameters: ParameterConfig[]) =>
+  parameters.reduce((message, parameter) => {
+    const key = escapeRegExp(JSON.stringify(parameter.name));
+    const jsonString = String.raw`"(?:(?:\\.)|[^"\\])*"`;
+    const jsonNumber = String.raw`-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?`;
+    const jsonLiteral = String.raw`true|false|null`;
+    const pattern = new RegExp(
+      `(${key}\\s*:\\s*)(${jsonString}|${jsonNumber}|${jsonLiteral})`,
+      "g"
     );
-  }
 
-  return value;
-};
+    return message.replace(pattern, (_match, prefix: string) => {
+      return `${prefix}${stringifyJsonValue(generateRandomValue(parameter))}`;
+    });
+  }, template);
 
 const replaceAssignments = (template: string, parameters: ParameterConfig[]) =>
   parameters.reduce((message, parameter) => {
@@ -68,10 +60,10 @@ export const generateMessageSnapshot = (
   parameters: ParameterConfig[]
 ): string => {
   const enabledParameters = parameters.filter((parameter) => parameter.enabled);
-  const parametersByName = new Map(enabledParameters.map((parameter) => [parameter.name, parameter]));
 
   try {
-    return JSON.stringify(replaceJsonValue(JSON.parse(template), parametersByName));
+    JSON.parse(template);
+    return replaceJsonFields(template, enabledParameters);
   } catch {
     return replaceAssignments(template, enabledParameters);
   }

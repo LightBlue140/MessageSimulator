@@ -28,6 +28,29 @@ describe("generateMessageSnapshot", () => {
     });
   });
 
+  it("preserves JSON formatting while replacing values", () => {
+    const template = `{
+  "amrCode": "10878",
+  "cooX": 5200.6,
+  "fmrInfo": {
+    "height": 125.5
+  }
+}`;
+    const parameters: ParameterConfig[] = [
+      { name: "amrCode", type: "string", enabled: true, candidates: ["10877"] },
+      { name: "cooX", type: "float", enabled: true, min: 2687.85, max: 2687.85, decimals: 2 },
+      { name: "height", type: "float", enabled: true, min: 4.66, max: 4.66, decimals: 2 }
+    ];
+
+    expect(generateMessageSnapshot(template, parameters)).toBe(`{
+  "amrCode": "10877",
+  "cooX": 2687.85,
+  "fmrInfo": {
+    "height": 4.66
+  }
+}`);
+  });
+
   it("replaces string assignment values without matching partial parameter names", () => {
     const parameters: ParameterConfig[] = [
       { name: "aa", type: "integer", enabled: true, min: 7, max: 7 },
