@@ -67,6 +67,12 @@ button:disabled {
   gap: 24px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .topbar h1 {
   margin: 4px 0;
   color: #0f172a;
@@ -150,6 +156,28 @@ button:disabled {
 
 .service-name-field {
   margin: 8px 0 2px;
+}
+
+.editable-name {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+}
+
+.editable-name:hover {
+  box-shadow: none;
+  color: #2563eb;
+}
+
+.detail-name-field {
+  margin-bottom: 12px;
 }
 
 .service-card p {
@@ -328,9 +356,10 @@ legend {
 
 .parameter-row {
   display: grid;
-  grid-template-columns: 130px minmax(140px, 1fr) minmax(130px, 0.9fr) auto repeat(3, minmax(110px, 0.7fr)) auto;
+  grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
   align-items: end;
   gap: 10px;
+  justify-content: start;
   overflow-x: auto;
 }
 
@@ -340,10 +369,15 @@ legend {
 
 .parameter-row label {
   margin: 0;
+  width: 140px;
 }
 
 .parameter-row button {
   white-space: nowrap;
+}
+
+.parameter-row .checkbox-label {
+  width: auto;
 }
 
 .vector-row {
@@ -409,6 +443,52 @@ legend {
   white-space: pre-wrap;
 }
 
+.dark-mode {
+  color: #dbeafe;
+  background: #0f172a;
+}
+
+.dark-mode .panel,
+.dark-mode .service-card,
+.dark-mode input,
+.dark-mode select,
+.dark-mode textarea,
+.dark-mode button {
+  border-color: #334155;
+  background: #111827;
+  color: #e2e8f0;
+}
+
+.dark-mode .topbar h1,
+.dark-mode .section-title h2,
+.dark-mode .panel h2,
+.dark-mode legend,
+.dark-mode .connection-grid dd,
+.dark-mode .editable-name {
+  color: #f8fafc;
+}
+
+.dark-mode label,
+.dark-mode .status-summary,
+.dark-mode .connection-grid dt,
+.dark-mode .service-card p,
+.dark-mode .pagination-row {
+  color: #cbd5e1;
+}
+
+.dark-mode .active-button,
+.dark-mode .primary-action {
+  border-color: #3b82f6;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.dark-mode code,
+.dark-mode pre {
+  background: #1e3a8a;
+  color: #dbeafe;
+}
+
 @media (max-width: 900px) {
   body {
     height: auto;
@@ -420,6 +500,7 @@ legend {
   }
 
   .topbar,
+  .topbar-actions,
   .dashboard-header,
   .toolbar,
   .action-group,

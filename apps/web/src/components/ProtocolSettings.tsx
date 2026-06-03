@@ -6,6 +6,8 @@ interface ProtocolSettingsProps {
 }
 
 export function ProtocolSettings({ config, setConfig }: ProtocolSettingsProps) {
+  const mqttCredentialsEnabled =
+    config.serverSettings.mqtt.username !== undefined || config.serverSettings.mqtt.password !== undefined;
   const updateSettings = <T extends keyof SimulatorConfig["serverSettings"]>(
     protocol: T,
     settings: SimulatorConfig["serverSettings"][T]
@@ -96,33 +98,51 @@ export function ProtocolSettings({ config, setConfig }: ProtocolSettingsProps) {
                 })
               }
             />
-            Retain
+            保留消息
           </label>
-          <label>
-            用户名
+          <label className="checkbox-label">
             <input
-              value={config.serverSettings.mqtt.username ?? ""}
+              type="checkbox"
+              checked={mqttCredentialsEnabled}
               onChange={(event) =>
                 updateSettings("mqtt", {
                   ...config.serverSettings.mqtt,
-                  username: event.target.value || undefined
+                  username: event.target.checked ? (config.serverSettings.mqtt.username ?? "") : undefined,
+                  password: event.target.checked ? (config.serverSettings.mqtt.password ?? "") : undefined
                 })
               }
             />
+            启用用户名和密码
           </label>
-          <label>
-            密码
-            <input
-              type="password"
-              value={config.serverSettings.mqtt.password ?? ""}
-              onChange={(event) =>
-                updateSettings("mqtt", {
-                  ...config.serverSettings.mqtt,
-                  password: event.target.value || undefined
-                })
-              }
-            />
-          </label>
+          {mqttCredentialsEnabled && (
+            <>
+              <label>
+                用户名
+                <input
+                  value={config.serverSettings.mqtt.username ?? ""}
+                  onChange={(event) =>
+                    updateSettings("mqtt", {
+                      ...config.serverSettings.mqtt,
+                      username: event.target.value
+                    })
+                  }
+                />
+              </label>
+              <label>
+                密码
+                <input
+                  type="password"
+                  value={config.serverSettings.mqtt.password ?? ""}
+                  onChange={(event) =>
+                    updateSettings("mqtt", {
+                      ...config.serverSettings.mqtt,
+                      password: event.target.value
+                    })
+                  }
+                />
+              </label>
+            </>
+          )}
         </>
       )}
       {config.protocol === "websocket" && (

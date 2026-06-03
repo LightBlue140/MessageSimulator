@@ -7,7 +7,7 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByText("服务管理")).toBeInTheDocument();
-    expect(screen.getByLabelText("服务名称 服务 1")).toHaveValue("服务 1");
+    expect(screen.getByText("服务 1")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("进入配置"));
 

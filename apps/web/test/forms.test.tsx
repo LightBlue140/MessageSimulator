@@ -15,6 +15,13 @@ describe("dynamic forms", () => {
 
     expect(screen.getByLabelText("Topic")).toBeInTheDocument();
     expect(screen.getByLabelText("QoS")).toBeInTheDocument();
+    expect(screen.getByLabelText("保留消息")).toBeInTheDocument();
+    expect(screen.getByLabelText("启用用户名和密码")).toBeInTheDocument();
+    expect(screen.queryByLabelText("用户名")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("启用用户名和密码"));
+    expect(screen.getByLabelText("用户名")).toBeInTheDocument();
+    expect(screen.getByLabelText("密码")).toBeInTheDocument();
   });
 
   it("shows vector component controls after parameter type switch", () => {
@@ -57,14 +64,29 @@ describe("dynamic forms", () => {
   it("edits the service name from the dashboard and configuration page", () => {
     render(<App />);
 
+    expect(screen.queryByLabelText("服务名称 服务 1")).not.toBeInTheDocument();
+    fireEvent.doubleClick(screen.getByText("服务 1"));
     fireEvent.change(screen.getByLabelText("服务名称 服务 1"), { target: { value: "MQTT 服务" } });
-    expect(screen.getByLabelText("服务名称 MQTT 服务")).toHaveValue("MQTT 服务");
+    fireEvent.blur(screen.getByLabelText("服务名称 MQTT 服务"));
+    expect(screen.getByText("MQTT 服务")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("进入配置"));
+    expect(screen.queryByLabelText("服务名称")).not.toBeInTheDocument();
+    fireEvent.doubleClick(screen.getByRole("button", { name: "MQTT 服务" }));
     fireEvent.change(screen.getByLabelText("服务名称"), { target: { value: "TCP 服务" } });
+    fireEvent.blur(screen.getByLabelText("服务名称"));
     fireEvent.click(screen.getByText("返回首页"));
 
-    expect(screen.getByLabelText("服务名称 TCP 服务")).toHaveValue("TCP 服务");
+    expect(screen.getByText("TCP 服务")).toBeInTheDocument();
+  });
+
+  it("toggles dark mode", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("黑夜模式"));
+
+    expect(screen.getByRole("main")).toHaveClass("dark-mode");
+    expect(screen.getByText("白天模式")).toBeInTheDocument();
   });
 
   it("marks send interval unused for HTTP", () => {

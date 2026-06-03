@@ -48,6 +48,9 @@ export function App() {
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>();
   const [dashboardView, setDashboardView] = useState<DashboardView>("services");
   const [detailView, setDetailView] = useState<DetailView>("editor");
+  const [darkMode, setDarkMode] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState<string | undefined>();
+  const [editingDetailName, setEditingDetailName] = useState(false);
   const [logsPage, setLogsPage] = useState(1);
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
@@ -211,16 +214,21 @@ export function App() {
     });
 
   return (
-    <main className="app-shell">
+    <main className={darkMode ? "app-shell dark-mode" : "app-shell"}>
       <header className="topbar">
         <div>
           <span className="eyebrow">Protocol Simulator</span>
           <h1>模拟消息发送器</h1>
         </div>
-        <section aria-label="运行总览" className="status-summary">
-          <strong>{runningCount}</strong>
-          <span>运行中 / {appConfig.services.length} 个服务</span>
-        </section>
+        <div className="topbar-actions">
+          <button type="button" onClick={() => setDarkMode(!darkMode)}>
+            {darkMode ? "白天模式" : "黑夜模式"}
+          </button>
+          <section aria-label="运行总览" className="status-summary">
+            <strong>{runningCount}</strong>
+            <span>运行中 / {appConfig.services.length} 个服务</span>
+          </section>
+        </div>
       </header>
 
       {selectedService === undefined ? (
@@ -228,6 +236,7 @@ export function App() {
           appConfig={appConfig}
           dashboardLogs={dashboardLogs}
           dashboardView={dashboardView}
+          editingServiceId={editingServiceId}
           logsPage={logsPage}
           pendingAction={pendingAction}
           runtimeStatus={runtimeStatus}
@@ -240,6 +249,8 @@ export function App() {
             setDetailView("editor");
           }}
           onRename={updateServiceName}
+          onRenameBlur={() => setEditingServiceId(undefined)}
+          onRenameStart={setEditingServiceId}
           onStart={handleStartService}
           onStartAll={handleStartAll}
           onStop={handleStopService}
@@ -254,6 +265,7 @@ export function App() {
         <ServiceDetail
           config={selectedService.config}
           detailView={detailView}
+          editingName={editingDetailName}
           preview={preview}
           serviceName={selectedService.name}
           onBack={() => setSelectedServiceId(undefined)}
@@ -261,6 +273,8 @@ export function App() {
           onClosePreview={() => setPreview("")}
           onLoad={() => setConfigFileDialogMode("load")}
           onNameChange={(name) => updateServiceName(selectedService.id, name)}
+          onNameEditEnd={() => setEditingDetailName(false)}
+          onNameEditStart={() => setEditingDetailName(true)}
           onPreview={handlePreview}
           onSave={() => setConfigFileDialogMode("save")}
           onViewChange={setDetailView}
@@ -309,6 +323,7 @@ function ServiceDashboard({
   appConfig,
   dashboardLogs,
   dashboardView,
+  editingServiceId,
   logsPage,
   pendingAction,
   runtimeStatus,
@@ -318,6 +333,8 @@ function ServiceDashboard({
   onSave,
   onSelect,
   onRename,
+  onRenameBlur,
+  onRenameStart,
   onStart,
   onStartAll,
   onStop,
@@ -328,6 +345,7 @@ function ServiceDashboard({
   appConfig: AppConfig;
   dashboardLogs: Array<ServiceRuntimeStatus["logs"][number]>;
   dashboardView: DashboardView;
+  editingServiceId?: string;
   logsPage: number;
   pendingAction?: string;
   runtimeStatus: MultiServiceRuntimeStatus;
@@ -337,6 +355,8 @@ function ServiceDashboard({
   onSave: () => void;
   onSelect: (serviceId: string) => void;
   onRename: (serviceId: string, name: string) => void;
+  onRenameBlur: () => void;
+  onRenameStart: (serviceId: string) => void;
   onStart: (serviceId: string) => void;
   onStartAll: () => void;
   onStop: (serviceId: string) => void;
@@ -389,13 +409,15 @@ function ServiceDashboard({
               <article className="service-card" key={service.id}>
                 <div>
                   <span className={running ? "status-pill running" : "status-pill"}>{running ? "运行中" : "已停止"}</span>
-                  <label className="service-name-field">
-                    服务名称 {service.name}
-                    <input
-                      value={service.name}
-                      onChange={(event) => onRename(service.id, event.target.value)}
-                    />
-                  </label>
+                  <EditableServiceName
+                    className="service-name-field"
+                    editing={editingServiceId === service.id}
+                    label={`服务名称 ${service.name}`}
+                    name={service.name}
+                    onBlur={onRenameBlur}
+                    onChange={(name) => onRename(service.id, name)}
+                    onEdit={() => onRenameStart(service.id)}
+                  />
                   <p>{service.config.protocol.toUpperCase()}</p>
                 </div>
                 <ConnectionInfo config={service.config} adapterStatus={status?.adapterStatus} compact />
@@ -451,9 +473,48 @@ function ServiceDashboard({
   );
 }
 
+function EditableServiceName({
+  className,
+  editing,
+  label,
+  name,
+  onBlur,
+  onChange,
+  onEdit
+}: {
+  className?: string;
+  editing: boolean;
+  label: string;
+  name: string;
+  onBlur: () => void;
+  onChange: (name: string) => void;
+  onEdit: () => void;
+}) {
+  if (editing) {
+    return (
+      <label className={className}>
+        {label}
+        <input
+          autoFocus
+          value={name}
+          onBlur={onBlur}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
+    );
+  }
+
+  return (
+    <button className={`editable-name ${className ?? ""}`} type="button" onDoubleClick={onEdit}>
+      {name}
+    </button>
+  );
+}
+
 function ServiceDetail({
   config,
   detailView,
+  editingName,
   preview,
   serviceName,
   onBack,
@@ -461,12 +522,15 @@ function ServiceDetail({
   onClosePreview,
   onLoad,
   onNameChange,
+  onNameEditEnd,
+  onNameEditStart,
   onPreview,
   onSave,
   onViewChange
 }: {
   config: SimulatorConfig;
   detailView: DetailView;
+  editingName: boolean;
   preview: string;
   serviceName: string;
   onBack: () => void;
@@ -474,6 +538,8 @@ function ServiceDetail({
   onClosePreview: () => void;
   onLoad: () => void;
   onNameChange: (name: string) => void;
+  onNameEditEnd: () => void;
+  onNameEditStart: () => void;
   onPreview: () => void;
   onSave: () => void;
   onViewChange: (view: DetailView) => void;
@@ -510,10 +576,15 @@ function ServiceDetail({
               <span className="eyebrow">{serviceName}</span>
               <h2>协议配置</h2>
             </div>
-            <label>
-              服务名称
-              <input value={serviceName} onChange={(event) => onNameChange(event.target.value)} />
-            </label>
+            <EditableServiceName
+              className="detail-name-field"
+              editing={editingName}
+              label="服务名称"
+              name={serviceName}
+              onBlur={onNameEditEnd}
+              onChange={onNameChange}
+              onEdit={onNameEditStart}
+            />
             <ProtocolSettings config={config} setConfig={onChange} />
             <div className="interval-grid">
               <label>
