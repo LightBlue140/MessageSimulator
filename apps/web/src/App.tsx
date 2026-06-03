@@ -24,7 +24,9 @@ import "./App.css";
 
 const defaultConfigFilePath = "save/config.json";
 type ConfigFileDialogMode = "save" | "load";
-type DetailView = "editor" | "parameters" | "logs";
+type DashboardView = "services" | "logs";
+type DetailView = "editor" | "parameters";
+const logsPerPage = 20;
 
 const statusFor = (status: MultiServiceRuntimeStatus, serviceId: string): ServiceRuntimeStatus | undefined =>
   status.services.find((service) => service.id === serviceId);
@@ -44,7 +46,9 @@ export function App() {
   const [appConfig, setAppConfig] = useState<AppConfig>(defaultAppConfig);
   const [runtimeStatus, setRuntimeStatus] = useState<MultiServiceRuntimeStatus>({ services: [] });
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>();
+  const [dashboardView, setDashboardView] = useState<DashboardView>("services");
   const [detailView, setDetailView] = useState<DetailView>("editor");
+  const [logsPage, setLogsPage] = useState(1);
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [configFilePath, setConfigFilePath] = useState(defaultConfigFilePath);
@@ -52,9 +56,15 @@ export function App() {
   const [pendingAction, setPendingAction] = useState<string | undefined>();
 
   const selectedService = appConfig.services.find((service) => service.id === selectedServiceId);
-  const selectedStatus = selectedService ? statusFor(runtimeStatus, selectedService.id) : undefined;
   const runningCount = useMemo(
     () => runtimeStatus.services.filter((service) => service.running).length,
+    [runtimeStatus.services]
+  );
+  const dashboardLogs = useMemo(
+    () =>
+      runtimeStatus.services.flatMap((service) =>
+        service.logs.map((log) => ({ ...log, message: `[${service.name}] ${log.message}` }))
+      ),
     [runtimeStatus.services]
   );
 
@@ -144,11 +154,12 @@ export function App() {
   const handleCopyService = (serviceId: string) =>
     runAction(async () => {
       await saveConfig(appConfig);
-      const copied = await copyService(serviceId);
+      await copyService(serviceId);
       const loaded = await getConfig();
       setAppConfig(loaded);
-      setSelectedServiceId(copied.id);
-      setDetailView("editor");
+      setSelectedServiceId(undefined);
+      setDashboardView("services");
+      setRuntimeStatus(await getStatus());
     });
 
   const handleAddService = () => {
@@ -207,6 +218,9 @@ export function App() {
       {selectedService === undefined ? (
         <ServiceDashboard
           appConfig={appConfig}
+          dashboardLogs={dashboardLogs}
+          dashboardView={dashboardView}
+          logsPage={logsPage}
           pendingAction={pendingAction}
           runtimeStatus={runtimeStatus}
           onAdd={handleAddService}
@@ -221,24 +235,24 @@ export function App() {
           onStartAll={handleStartAll}
           onStop={handleStopService}
           onStopAll={handleStopAll}
+          onLogsPageChange={setLogsPage}
+          onViewChange={(view) => {
+            setDashboardView(view);
+            setLogsPage(1);
+          }}
         />
       ) : (
         <ServiceDetail
           config={selectedService.config}
           detailView={detailView}
-          pendingAction={pendingAction}
           preview={preview}
           serviceName={selectedService.name}
-          status={selectedStatus}
           onBack={() => setSelectedServiceId(undefined)}
           onChange={updateSelectedConfig}
           onClosePreview={() => setPreview("")}
-          onCopy={() => handleCopyService(selectedService.id)}
           onLoad={() => setConfigFileDialogMode("load")}
           onPreview={handlePreview}
           onSave={() => setConfigFileDialogMode("save")}
-          onStart={() => handleStartService(selectedService.id)}
-          onStop={() => handleStopService(selectedService.id)}
           onViewChange={setDetailView}
         />
       )}
@@ -283,6 +297,9 @@ export function App() {
 
 function ServiceDashboard({
   appConfig,
+  dashboardLogs,
+  dashboardView,
+  logsPage,
   pendingAction,
   runtimeStatus,
   onAdd,
@@ -293,9 +310,14 @@ function ServiceDashboard({
   onStart,
   onStartAll,
   onStop,
-  onStopAll
+  onStopAll,
+  onLogsPageChange,
+  onViewChange
 }: {
   appConfig: AppConfig;
+  dashboardLogs: Array<ServiceRuntimeStatus["logs"][number]>;
+  dashboardView: DashboardView;
+  logsPage: number;
   pendingAction?: string;
   runtimeStatus: MultiServiceRuntimeStatus;
   onAdd: () => void;
@@ -307,7 +329,14 @@ function ServiceDashboard({
   onStartAll: () => void;
   onStop: (serviceId: string) => void;
   onStopAll: () => void;
+  onLogsPageChange: (page: number) => void;
+  onViewChange: (view: DashboardView) => void;
 }) {
+  const totalLogPages = Math.max(1, Math.ceil(dashboardLogs.length / logsPerPage));
+  const safeLogsPage = Math.min(logsPage, totalLogPages);
+  const pageStart = (safeLogsPage - 1) * logsPerPage;
+  const visibleLogs = dashboardLogs.slice(pageStart, pageStart + logsPerPage);
+
   return (
     <section className="panel scroll-region dashboard-page" aria-label="服务管理页">
       <div className="dashboard-header">
@@ -316,6 +345,12 @@ function ServiceDashboard({
           <h2>服务管理</h2>
         </div>
         <div className="action-group">
+          <button className={dashboardView === "services" ? "active-button" : ""} type="button" onClick={() => onViewChange("services")}>
+            服务页
+          </button>
+          <button className={dashboardView === "logs" ? "active-button" : ""} type="button" onClick={() => onViewChange("logs")}>
+            日志页
+          </button>
           <button className="active-button" type="button" disabled={pendingAction !== undefined} onClick={onStartAll}>
             全部启动
           </button>
@@ -333,46 +368,67 @@ function ServiceDashboard({
           </button>
         </div>
       </div>
-      <div className="service-grid">
-        {appConfig.services.map((service) => {
-          const status = statusFor(runtimeStatus, service.id);
-          const running = status?.running ?? false;
-          return (
-            <article className="service-card" key={service.id}>
-              <div>
-                <span className={running ? "status-pill running" : "status-pill"}>{running ? "运行中" : "已停止"}</span>
-                <h3>{service.name}</h3>
-                <p>{service.config.protocol.toUpperCase()}</p>
-              </div>
-              <ConnectionInfo config={service.config} adapterStatus={status?.adapterStatus} compact />
-              {status?.error && <p className="service-error">{status.error}</p>}
-              <div className="card-actions">
-                <button type="button" onClick={() => onSelect(service.id)}>
-                  进入配置
-                </button>
-                <button type="button" onClick={() => onCopy(service.id)}>
-                  复制
-                </button>
-                <button
-                  className={running ? "" : "active-button"}
-                  type="button"
-                  disabled={running || pendingAction !== undefined}
-                  onClick={() => onStart(service.id)}
-                >
-                  启动
-                </button>
-                <button
-                  type="button"
-                  disabled={!running || pendingAction !== undefined}
-                  onClick={() => onStop(service.id)}
-                >
-                  停止
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </div>
+      {dashboardView === "services" ? (
+        <div className="service-grid">
+          {appConfig.services.map((service) => {
+            const status = statusFor(runtimeStatus, service.id);
+            const running = status?.running ?? false;
+            return (
+              <article className="service-card" key={service.id}>
+                <div>
+                  <span className={running ? "status-pill running" : "status-pill"}>{running ? "运行中" : "已停止"}</span>
+                  <h3>{service.name}</h3>
+                  <p>{service.config.protocol.toUpperCase()}</p>
+                </div>
+                <ConnectionInfo config={service.config} adapterStatus={status?.adapterStatus} compact />
+                {status?.error && <p className="service-error">{status.error}</p>}
+                <div className="card-actions">
+                  <button type="button" onClick={() => onSelect(service.id)}>
+                    进入配置
+                  </button>
+                  <button type="button" onClick={() => onCopy(service.id)}>
+                    复制
+                  </button>
+                  <button
+                    className={running ? "" : "active-button"}
+                    type="button"
+                    disabled={running || pendingAction !== undefined}
+                    onClick={() => onStart(service.id)}
+                  >
+                    启动
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!running || pendingAction !== undefined}
+                    onClick={() => onStop(service.id)}
+                  >
+                    停止
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <section className="log-page" aria-label="总服务日志页">
+          <LogViewer logs={visibleLogs} />
+          <div className="pagination-row">
+            <button type="button" disabled={safeLogsPage <= 1} onClick={() => onLogsPageChange(safeLogsPage - 1)}>
+              上一页
+            </button>
+            <span>
+              第 {safeLogsPage} / {totalLogPages} 页
+            </span>
+            <button
+              type="button"
+              disabled={safeLogsPage >= totalLogPages}
+              onClick={() => onLogsPageChange(safeLogsPage + 1)}
+            >
+              下一页
+            </button>
+          </div>
+        </section>
+      )}
     </section>
   );
 }
@@ -380,39 +436,28 @@ function ServiceDashboard({
 function ServiceDetail({
   config,
   detailView,
-  pendingAction,
   preview,
   serviceName,
-  status,
   onBack,
   onChange,
   onClosePreview,
-  onCopy,
   onLoad,
   onPreview,
   onSave,
-  onStart,
-  onStop,
   onViewChange
 }: {
   config: SimulatorConfig;
   detailView: DetailView;
-  pendingAction?: string;
   preview: string;
   serviceName: string;
-  status?: ServiceRuntimeStatus;
   onBack: () => void;
   onChange: (config: SimulatorConfig) => void;
   onClosePreview: () => void;
-  onCopy: () => void;
   onLoad: () => void;
   onPreview: () => void;
   onSave: () => void;
-  onStart: () => void;
-  onStop: () => void;
   onViewChange: (view: DetailView) => void;
 }) {
-  const running = status?.running ?? false;
   return (
     <>
       <section className="toolbar panel" aria-label="操作区">
@@ -420,17 +465,8 @@ function ServiceDetail({
           <button type="button" onClick={onBack}>
             返回首页
           </button>
-          <button className={running ? "" : "active-button"} type="button" disabled={running || pendingAction !== undefined} onClick={onStart}>
-            启动
-          </button>
-          <button type="button" disabled={!running || pendingAction !== undefined} onClick={onStop}>
-            停止
-          </button>
           <button type="button" onClick={onPreview}>
             模拟数据
-          </button>
-          <button type="button" onClick={onCopy}>
-            复制服务
           </button>
           <button type="button" onClick={onSave}>
             保存配置文件
@@ -438,16 +474,11 @@ function ServiceDetail({
           <button type="button" onClick={onLoad}>
             加载配置文件
           </button>
-        </div>
-        <div className="view-switcher">
           <button className={detailView === "editor" ? "active-button" : ""} type="button" onClick={() => onViewChange("editor")}>
             编辑页
           </button>
           <button className={detailView === "parameters" ? "active-button" : ""} type="button" onClick={() => onViewChange("parameters")}>
             参数页
-          </button>
-          <button className={detailView === "logs" ? "active-button" : ""} type="button" onClick={() => onViewChange("logs")}>
-            日志页
           </button>
         </div>
       </section>
@@ -479,7 +510,7 @@ function ServiceDetail({
                 />
               </label>
             </div>
-            <ConnectionInfo config={config} adapterStatus={status?.adapterStatus} />
+            <ConnectionInfo config={config} />
           </section>
           <section className="panel scroll-region resizable-panel template-panel" aria-label="消息区">
             <MessageTemplate
@@ -495,12 +526,6 @@ function ServiceDetail({
           <ParameterEditor parameters={config.parameters} onChange={(parameters) => onChange({ ...config, parameters })} />
         </section>
       )}
-      {detailView === "logs" && (
-        <section className="panel scroll-region log-page" aria-label="日志页内容">
-          <LogViewer logs={status?.logs ?? []} />
-        </section>
-      )}
-
       {preview && (
         <div className="modal-backdrop">
           <section className="panel preview-dialog" role="dialog" aria-modal="true" aria-label="模拟数据预览">

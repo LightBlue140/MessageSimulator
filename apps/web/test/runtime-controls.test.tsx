@@ -26,7 +26,7 @@ describe("runtime controls", () => {
     expect(fetchMock).not.toHaveBeenCalledWith("/api/config");
   });
 
-  it("shows start stop preview and logs controls", () => {
+  it("keeps runtime controls on the service dashboard and configuration controls in one toolbar", () => {
     render(<App />);
 
     expect(screen.queryByLabelText("配置文件路径")).not.toBeInTheDocument();
@@ -34,16 +34,21 @@ describe("runtime controls", () => {
     expect(screen.getByText("全部启动")).toBeInTheDocument();
     expect(screen.getByText("全部停止")).toBeInTheDocument();
     expect(screen.getByText("新建服务")).toBeInTheDocument();
+    expect(screen.getByText("日志页")).toBeInTheDocument();
 
     openDefaultService();
 
-    expect(screen.getByText("启动")).toBeInTheDocument();
-    expect(screen.getByText("停止")).toBeInTheDocument();
+    const toolbar = screen.getByLabelText("操作区");
+    expect(within(toolbar).getByText("返回首页")).toBeInTheDocument();
     expect(screen.getByText("模拟数据")).toBeInTheDocument();
     expect(screen.getByText("保存配置文件")).toBeInTheDocument();
     expect(screen.getByText("加载配置文件")).toBeInTheDocument();
-    expect(screen.getByText("参数页")).toBeInTheDocument();
-    expect(screen.getByText("日志页")).toBeInTheDocument();
+    expect(within(toolbar).getByText("编辑页")).toBeInTheDocument();
+    expect(within(toolbar).getByText("参数页")).toBeInTheDocument();
+    expect(within(toolbar).queryByText("启动")).not.toBeInTheDocument();
+    expect(within(toolbar).queryByText("停止")).not.toBeInTheDocument();
+    expect(within(toolbar).queryByText("复制服务")).not.toBeInTheDocument();
+    expect(within(toolbar).queryByText("日志页")).not.toBeInTheDocument();
   });
 
   it("opens a path picker dialog for saving config files", () => {
@@ -84,7 +89,6 @@ describe("runtime controls", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
-    openDefaultService();
 
     const start = screen.getByText("启动");
     const stop = screen.getByText("停止");
@@ -111,10 +115,9 @@ describe("runtime controls", () => {
     expect(screen.getByLabelText("配置区")).toHaveClass("scroll-region");
     expect(screen.getByLabelText("消息区")).toHaveClass("scroll-region", "resizable-panel");
     expect(screen.queryByLabelText("参数页内容")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("日志页内容")).not.toBeInTheDocument();
   });
 
-  it("switches parameters into a separate page", () => {
+  it("switches parameters from the same configuration toolbar", () => {
     render(<App />);
     openDefaultService();
 
@@ -124,14 +127,14 @@ describe("runtime controls", () => {
     expect(screen.queryByLabelText("编辑工作区")).not.toBeInTheDocument();
   });
 
-  it("switches logs into a separate page", () => {
+  it("switches logs into a dashboard page", () => {
     render(<App />);
-    openDefaultService();
 
     fireEvent.click(screen.getByText("日志页"));
 
-    expect(screen.getByLabelText("日志页内容")).toBeInTheDocument();
-    expect(screen.queryByLabelText("编辑工作区")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("总服务日志页")).toBeInTheDocument();
+    expect(screen.getByText("服务页")).toBeInTheDocument();
+    expect(screen.getByText("暂无日志")).toBeInTheDocument();
   });
 
   it("shows protocol-specific connection instructions", () => {
