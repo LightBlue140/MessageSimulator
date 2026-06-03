@@ -153,7 +153,7 @@ describe("SimulatorRuntime", () => {
     });
   });
 
-  it("keeps running and allows retry when adapter stop fails", async () => {
+  it("reports stopped and stops refreshing snapshots when adapter stop fails", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     vi.spyOn(Math, "random").mockReturnValueOnce(0).mockReturnValueOnce(0.99);
@@ -172,8 +172,10 @@ describe("SimulatorRuntime", () => {
     await runtime.stop();
 
     expect(runtime.getStatus()).toMatchObject({
-      running: true,
-      protocol: "http"
+      running: false,
+      protocol: undefined,
+      lastMessage: undefined,
+      adapterStatus: undefined
     });
     expect(runtime.getStatus().logs).toEqual(
       expect.arrayContaining([
@@ -182,12 +184,8 @@ describe("SimulatorRuntime", () => {
     );
 
     await vi.advanceTimersByTimeAsync(100);
-    expect(runtime.getStatus().lastMessage).toBe("{\"aa\":3}");
-
-    await runtime.stop();
-
-    expect(adapter.stops).toBe(2);
-    expect(runtime.getStatus().running).toBe(false);
+    expect(runtime.getStatus().lastMessage).toBeUndefined();
+    expect(adapter.stops).toBe(1);
   });
 });
 
@@ -239,6 +237,37 @@ describe("MultiServiceRuntime", () => {
 
     expect(adapters.map((adapter) => adapter.stops)).toEqual([1, 1]);
     expect(runtime.getStatus().services.map((service) => service.running)).toEqual([false, false]);
+  });
+
+  it("stops every service when one adapter stop reports an error", async () => {
+    const adapters = [new TestAdapter(), new TestAdapter()];
+    adapters[0].stopErrors.push(new Error("shared broker close failed"));
+    let index = 0;
+    const appConfig: AppConfig = {
+      services: [
+        { id: "service-a", name: "MQTT A", config: testConfig({ protocol: "mqtt" }) },
+        { id: "service-b", name: "MQTT B", config: testConfig({ protocol: "mqtt" }) }
+      ]
+    };
+    const runtime = new MultiServiceRuntime(() => new SimulatorRuntime({ mqtt: adapters[index++] }));
+
+    await runtime.startAll(appConfig);
+    const results = await runtime.stopAll();
+
+    expect(results).toEqual([
+      { id: "service-a", ok: true },
+      { id: "service-b", ok: true }
+    ]);
+    expect(adapters.map((adapter) => adapter.stops)).toEqual([1, 1]);
+    expect(runtime.getStatus().services.map((service) => service.running)).toEqual([false, false]);
+    expect(runtime.getStatus().services[0].logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: "error",
+          message: "Failed to stop simulator: shared broker close failed"
+        })
+      ])
+    );
   });
 
   it("reports a service start failure without blocking other services", async () => {

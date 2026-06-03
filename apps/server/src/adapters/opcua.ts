@@ -21,6 +21,22 @@ const servers = new Map<string, SharedOpcUaServer>();
 
 const serverKeyFor = (port: number, endpointPath: string) => `${port}:${endpointPath}`;
 
+const withTimeout = async (promise: Promise<unknown>, milliseconds: number) => {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      promise,
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(resolve, milliseconds);
+      })
+    ]);
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+  }
+};
+
 const toDataType = (value: string) => {
   switch (value) {
     case "Double":
@@ -88,17 +104,22 @@ export class OpcUaAdapter implements SimulatorAdapter {
       return;
     }
 
-    shared.refs -= 1;
-
-    if (shared.refs <= 0) {
-      await shared.server.shutdown(100);
-      servers.delete(key);
+    shared.refs = Math.max(0, shared.refs - 1);
+    if (this.nodeId !== undefined) {
+      shared.values.delete(this.nodeId);
     }
 
-    this.shared = undefined;
-    this.key = undefined;
-    this.nodeId = undefined;
-    this.listenAddress = undefined;
+    try {
+      if (shared.refs <= 0) {
+        await withTimeout(shared.server.shutdown(100), 3000);
+        servers.delete(key);
+      }
+    } finally {
+      this.shared = undefined;
+      this.key = undefined;
+      this.nodeId = undefined;
+      this.listenAddress = undefined;
+    }
   }
 
   getStatus(): AdapterStatus {

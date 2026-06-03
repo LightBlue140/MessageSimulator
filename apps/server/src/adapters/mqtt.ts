@@ -14,6 +14,35 @@ interface SharedBroker {
 
 const brokers = new Map<number, SharedBroker>();
 
+const resolveAfter = (milliseconds: number, action: (done: () => void) => void) =>
+  new Promise<void>((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      resolve();
+    };
+    const timeout = setTimeout(done, milliseconds);
+
+    try {
+      action(done);
+    } catch {
+      done();
+    }
+  });
+
+const closeSharedBroker = async (shared: SharedBroker) => {
+  await resolveAfter(2500, (done) => {
+    shared.server.close(done);
+  });
+  await resolveAfter(2500, (done) => {
+    shared.broker.close(done);
+  });
+};
+
 export class MqttAdapter implements SimulatorAdapter {
   private shared?: SharedBroker;
   private timer?: ReturnType<typeof setInterval>;
@@ -64,22 +93,19 @@ export class MqttAdapter implements SimulatorAdapter {
       this.logs = undefined;
     }
 
-    shared.refs -= 1;
+    shared.refs = Math.max(0, shared.refs - 1);
 
-    if (shared.refs <= 0) {
-      await new Promise<void>((resolve) => {
-        shared.server.close(() => resolve());
-      });
-      await new Promise<void>((resolve) => {
-        shared.broker.close(() => resolve());
-      });
-      brokers.delete(port);
+    try {
+      if (shared.refs <= 0) {
+        await closeSharedBroker(shared);
+        brokers.delete(port);
+      }
+    } finally {
+      this.shared = undefined;
+      this.port = undefined;
+      this.listenAddress = undefined;
+      this.logs = undefined;
     }
-
-    this.shared = undefined;
-    this.port = undefined;
-    this.listenAddress = undefined;
-    this.logs = undefined;
   }
 
   getStatus(): AdapterStatus {

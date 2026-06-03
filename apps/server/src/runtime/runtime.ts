@@ -87,14 +87,13 @@ export class SimulatorRuntime {
 
     try {
       await active.adapter.stop();
+      this.logs.add("info", "Simulator stopped");
     } catch (error) {
       this.logs.add("error", `Failed to stop simulator: ${errorMessage(error)}`);
-      return;
+    } finally {
+      clearInterval(active.timer);
+      this.active = undefined;
     }
-
-    clearInterval(active.timer);
-    this.logs.add("info", "Simulator stopped");
-    this.active = undefined;
   }
 
   getStatus(): SimulatorRuntimeStatus {

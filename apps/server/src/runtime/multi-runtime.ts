@@ -54,9 +54,15 @@ export class MultiServiceRuntime {
       return { id: serviceId, ok: true };
     }
 
-    await runtime.stop();
-    this.errors.delete(serviceId);
-    return { id: serviceId, ok: true };
+    try {
+      await runtime.stop();
+      this.errors.delete(serviceId);
+      return { id: serviceId, ok: true };
+    } catch (error) {
+      const message = errorMessage(error);
+      this.errors.set(serviceId, message);
+      return { id: serviceId, ok: false, error: message };
+    }
   }
 
   async startAll(config: AppConfig): Promise<RuntimeActionResult[]> {
@@ -72,7 +78,7 @@ export class MultiServiceRuntime {
   async stopAll(): Promise<RuntimeActionResult[]> {
     const results: RuntimeActionResult[] = [];
 
-    for (const serviceId of this.runtimes.keys()) {
+    for (const serviceId of [...this.runtimes.keys()]) {
       results.push(await this.stopService(serviceId));
     }
 
