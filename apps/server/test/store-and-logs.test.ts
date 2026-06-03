@@ -2,29 +2,53 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultConfig } from "../src/config/schema.js";
+import { defaultAppConfig, defaultConfig } from "../src/config/schema.js";
 import { ConfigStore } from "../src/config/store.js";
 import { RecentLogs } from "../src/runtime/logs.js";
 
 describe("ConfigStore", () => {
-  it("persists and loads simulator config", async () => {
+  it("persists and loads app config", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sim-config-"));
     try {
       const store = new ConfigStore(join(dir, "config.json"));
-      await store.save({ ...defaultConfig, messageTemplate: "aa=100" });
-      expect((await store.load()).messageTemplate).toBe("aa=100");
+      await store.save({
+        services: [
+          {
+            ...defaultAppConfig.services[0],
+            config: { ...defaultConfig, messageTemplate: "aa=100" }
+          }
+        ]
+      });
+      expect((await store.load()).services[0].config.messageTemplate).toBe("aa=100");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
   });
 
-  it("returns a cloned default config when the file is missing", async () => {
+  it("returns a cloned default app config when the file is missing", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sim-config-"));
     try {
       const store = new ConfigStore(join(dir, "missing.json"));
       const loaded = await store.load();
-      loaded.serverSettings.http.port = 1234;
-      expect((await store.load()).serverSettings.http.port).toBe(defaultConfig.serverSettings.http.port);
+      loaded.services[0].config.serverSettings.http.port = 1234;
+      expect((await store.load()).services[0].config.serverSettings.http.port).toBe(defaultConfig.serverSettings.http.port);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("upgrades legacy single-service files", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sim-config-"));
+    try {
+      const configPath = join(dir, "config.json");
+      await writeFile(configPath, JSON.stringify({ ...defaultConfig, messageTemplate: "legacy={aa}" }), "utf8");
+      const store = new ConfigStore(configPath);
+
+      expect((await store.load()).services[0]).toMatchObject({
+        id: "service-1",
+        name: "服务 1",
+        config: { messageTemplate: "legacy={aa}" }
+      });
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

@@ -109,6 +109,21 @@ export const simulatorConfigSchema = z
 export type SimulatorConfig = z.infer<typeof simulatorConfigSchema>;
 export type ParameterConfig = z.infer<typeof parameterSchema>;
 
+export const simulatorServiceSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  config: simulatorConfigSchema
+});
+
+export const appConfigSchema = z
+  .object({
+    services: z.array(simulatorServiceSchema).min(1)
+  })
+  .refine((value) => hasUniqueNames(value.services.map((service) => ({ name: service.id }))), "service ids must be unique");
+
+export type SimulatorService = z.infer<typeof simulatorServiceSchema>;
+export type AppConfig = z.infer<typeof appConfigSchema>;
+
 export const defaultConfig: SimulatorConfig = {
   protocol: "http",
   serverSettings: {
@@ -128,4 +143,68 @@ export const defaultConfig: SimulatorConfig = {
   parameters: [{ name: "aa", type: "integer", enabled: true, min: 0, max: 999 }],
   sendIntervalSeconds: 1,
   randomizeIntervalSeconds: 5
+};
+
+export const defaultAppConfig: AppConfig = {
+  services: [{ id: "service-1", name: "服务 1", config: defaultConfig }]
+};
+
+const nextServiceId = (services: SimulatorService[]) => {
+  let index = services.length + 1;
+  const existingIds = new Set(services.map((service) => service.id));
+
+  while (existingIds.has(`service-${index}`)) {
+    index += 1;
+  }
+
+  return `service-${index}`;
+};
+
+const nextMqttTopic = (topic: string, services: SimulatorService[]) => {
+  const existingTopics = new Set(
+    services
+      .filter((service) => service.config.protocol === "mqtt")
+      .map((service) => service.config.serverSettings.mqtt.topic)
+  );
+  let index = 1;
+  let candidate = `${topic}-copy-${index}`;
+
+  while (existingTopics.has(candidate)) {
+    index += 1;
+    candidate = `${topic}-copy-${index}`;
+  }
+
+  return candidate;
+};
+
+export const toAppConfig = (input: unknown): AppConfig => {
+  const parsedAppConfig = appConfigSchema.safeParse(input);
+  if (parsedAppConfig.success) {
+    return parsedAppConfig.data;
+  }
+
+  const parsedSimulatorConfig = simulatorConfigSchema.parse(input);
+  return appConfigSchema.parse({
+    services: [{ id: "service-1", name: "服务 1", config: parsedSimulatorConfig }]
+  });
+};
+
+export const cloneServiceForCopy = (
+  service: SimulatorService,
+  existingServices: SimulatorService[]
+): SimulatorService => {
+  const copy = simulatorServiceSchema.parse({
+    id: nextServiceId(existingServices),
+    name: `${service.name} 副本`,
+    config: structuredClone(service.config)
+  });
+
+  if (copy.config.protocol === "mqtt") {
+    copy.config.serverSettings.mqtt.topic = nextMqttTopic(
+      service.config.serverSettings.mqtt.topic,
+      existingServices
+    );
+  }
+
+  return copy;
 };

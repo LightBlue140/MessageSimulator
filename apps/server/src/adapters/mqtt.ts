@@ -2,43 +2,36 @@ import { createServer, type AddressInfo, type Server } from "node:net";
 import aedes from "aedes";
 const { createBroker } = aedes;
 import type { AdapterContext, AdapterStatus, SimulatorAdapter } from "./types.js";
+import type { RecentLogs } from "../runtime/logs.js";
+
+interface SharedBroker {
+  broker: ReturnType<typeof createBroker>;
+  connectedClients: number;
+  logs: Set<RecentLogs>;
+  refs: number;
+  server: Server;
+}
+
+const brokers = new Map<number, SharedBroker>();
 
 export class MqttAdapter implements SimulatorAdapter {
-  private broker?: ReturnType<typeof createBroker>;
-  private server?: Server;
+  private shared?: SharedBroker;
   private timer?: ReturnType<typeof setInterval>;
-  private connectedClients = 0;
+  private logs?: RecentLogs;
   private listenAddress?: string;
+  private port?: number;
 
   async start(context: AdapterContext): Promise<void> {
     const settings = context.config.serverSettings.mqtt;
-    this.broker = createBroker();
-    this.broker.authenticate = (_client, username, password, done) => {
-      if (!settings.username && !settings.password) {
-        done(null, true);
-        return;
-      }
-
-      const passwordText = password?.toString();
-      done(null, username === settings.username && passwordText === settings.password);
-    };
-    this.broker.on("client", () => {
-      this.connectedClients += 1;
-      context.logs.add("info", "MQTT client connected");
-    });
-    this.broker.on("clientDisconnect", () => {
-      this.connectedClients = Math.max(0, this.connectedClients - 1);
-      context.logs.add("info", "MQTT client disconnected");
-    });
-
-    this.server = createServer(this.broker.handle);
-    await new Promise<void>((resolve) => {
-      this.server!.listen(settings.port, "0.0.0.0", resolve);
-    });
+    this.port = settings.port;
+    this.shared = await this.getSharedBroker(context);
+    this.shared.refs += 1;
+    this.shared.logs.add(context.logs);
+    this.logs = context.logs;
     this.listenAddress = this.addressFromServer();
 
     this.timer = setInterval(() => {
-      this.broker?.publish(
+      this.shared?.broker.publish(
         {
           cmd: "publish",
           dup: false,
@@ -59,25 +52,84 @@ export class MqttAdapter implements SimulatorAdapter {
       this.timer = undefined;
     }
 
-    await new Promise<void>((resolve) => {
-      this.server?.close(() => resolve()) ?? resolve();
-    });
-    await new Promise<void>((resolve) => {
-      this.broker?.close(() => resolve()) ?? resolve();
-    });
+    const shared = this.shared;
+    const port = this.port;
 
-    this.server = undefined;
-    this.broker = undefined;
-    this.connectedClients = 0;
+    if (shared === undefined || port === undefined) {
+      return;
+    }
+
+    if (this.logs !== undefined) {
+      shared.logs.delete(this.logs);
+      this.logs = undefined;
+    }
+
+    shared.refs -= 1;
+
+    if (shared.refs <= 0) {
+      await new Promise<void>((resolve) => {
+        shared.server.close(() => resolve());
+      });
+      await new Promise<void>((resolve) => {
+        shared.broker.close(() => resolve());
+      });
+      brokers.delete(port);
+    }
+
+    this.shared = undefined;
+    this.port = undefined;
     this.listenAddress = undefined;
+    this.logs = undefined;
   }
 
   getStatus(): AdapterStatus {
-    return { connectedClients: this.connectedClients, listenAddress: this.listenAddress };
+    return { connectedClients: this.shared?.connectedClients ?? 0, listenAddress: this.listenAddress };
+  }
+
+  private async getSharedBroker(context: AdapterContext) {
+    const settings = context.config.serverSettings.mqtt;
+    const existing = brokers.get(settings.port);
+    if (existing !== undefined) {
+      return existing;
+    }
+
+    const broker = createBroker();
+    const server = createServer(broker.handle);
+    const shared: SharedBroker = { broker, connectedClients: 0, logs: new Set(), refs: 0, server };
+
+    broker.authenticate = (_client, username, password, done) => {
+      if (!settings.username && !settings.password) {
+        done(null, true);
+        return;
+      }
+
+      const passwordText = password?.toString();
+      done(null, username === settings.username && passwordText === settings.password);
+    };
+    broker.on("client", () => {
+      shared.connectedClients += 1;
+      for (const logs of shared.logs) {
+        logs.add("info", "MQTT client connected");
+      }
+    });
+    broker.on("clientDisconnect", () => {
+      shared.connectedClients = Math.max(0, shared.connectedClients - 1);
+      for (const logs of shared.logs) {
+        logs.add("info", "MQTT client disconnected");
+      }
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(settings.port, "0.0.0.0", resolve);
+    });
+
+    brokers.set(settings.port, shared);
+
+    return shared;
   }
 
   private addressFromServer() {
-    const address = this.server?.address();
+    const address = this.shared?.server.address();
     if (address === undefined || address === null || typeof address === "string") {
       return undefined;
     }

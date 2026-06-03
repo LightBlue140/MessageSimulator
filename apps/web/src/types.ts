@@ -40,10 +40,35 @@ export interface SimulatorConfig {
   randomizeIntervalSeconds: number;
 }
 
+export interface SimulatorService {
+  id: string;
+  name: string;
+  config: SimulatorConfig;
+}
+
+export interface AppConfig {
+  services: SimulatorService[];
+}
+
 export interface AdapterStatus {
   connectedClients?: number;
   requestCount?: number;
   listenAddress?: string;
+}
+
+export interface ServiceRuntimeStatus {
+  id: string;
+  name: string;
+  running: boolean;
+  protocol?: Protocol;
+  lastMessage?: string;
+  logs: Array<{ id: number; level: "info" | "error"; message: string; timestamp: string }>;
+  adapterStatus?: AdapterStatus;
+  error?: string;
+}
+
+export interface MultiServiceRuntimeStatus {
+  services: ServiceRuntimeStatus[];
 }
 
 export const defaultConfig: SimulatorConfig = {
@@ -65,4 +90,8 @@ export const defaultConfig: SimulatorConfig = {
   parameters: [{ name: "aa", type: "integer", enabled: true, min: 0, max: 999 }],
   sendIntervalSeconds: 1,
   randomizeIntervalSeconds: 5
+};
+
+export const defaultAppConfig: AppConfig = {
+  services: [{ id: "service-1", name: "服务 1", config: defaultConfig }]
 };

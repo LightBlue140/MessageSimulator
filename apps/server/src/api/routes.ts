@@ -8,15 +8,21 @@ import { MqttAdapter } from "../adapters/mqtt.js";
 import { OpcUaAdapter } from "../adapters/opcua.js";
 import { TcpAdapter } from "../adapters/tcp.js";
 import { WebSocketAdapter } from "../adapters/websocket.js";
-import { simulatorConfigSchema, type SimulatorConfig } from "../config/schema.js";
+import {
+  appConfigSchema,
+  cloneServiceForCopy,
+  simulatorConfigSchema,
+  type AppConfig
+} from "../config/schema.js";
 import { ConfigStore } from "../config/store.js";
 import { generateMessageSnapshot } from "../generator/replacement.js";
+import { MultiServiceRuntime } from "../runtime/multi-runtime.js";
 import { SimulatorRuntime } from "../runtime/runtime.js";
 
 export interface RegisterRoutesOptions {
   configStore?: ConfigStore;
   defaultSavePath?: string;
-  runtime?: SimulatorRuntime;
+  runtime?: MultiServiceRuntime;
 }
 
 const defaultConfigPath = process.env.SIMULATOR_CONFIG_PATH ?? "data/config.json";
@@ -58,7 +64,7 @@ const resolveSavePath = (inputPath: unknown, defaultSavePath: string) => {
   return resolve(dirname(dirname(defaultSavePath)), trimmedPath);
 };
 
-const createDefaultRuntime = () =>
+const createSimulatorRuntime = () =>
   new SimulatorRuntime({
     http: new HttpAdapter(),
     websocket: new WebSocketAdapter(),
@@ -66,6 +72,8 @@ const createDefaultRuntime = () =>
     mqtt: new MqttAdapter(),
     opcua: new OpcUaAdapter()
   });
+
+const createDefaultRuntime = () => new MultiServiceRuntime(createSimulatorRuntime);
 
 const sendValidationError = (reply: FastifyReply, error: ZodError) =>
   reply.status(400).send({ error: "Invalid simulator config", issues: error.issues });
@@ -75,7 +83,7 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
   const defaultSavePath =
     options.defaultSavePath ?? process.env.SIMULATOR_SAVE_PATH ?? join(findRepoRoot(), "save", "config.json");
   const runtime = options.runtime ?? createDefaultRuntime();
-  let currentConfig: SimulatorConfig | undefined;
+  let currentConfig: AppConfig | undefined;
 
   const loadCurrentConfig = async () => {
     currentConfig ??= await configStore.load();
@@ -85,7 +93,7 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
   app.get("/api/config", async () => loadCurrentConfig());
 
   app.put("/api/config", async (request, reply) => {
-    const parsed = simulatorConfigSchema.safeParse(request.body);
+    const parsed = appConfigSchema.safeParse(request.body);
 
     if (!parsed.success) {
       return sendValidationError(reply, parsed.error);
@@ -98,7 +106,7 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
 
   app.post("/api/config-file/save", async (request, reply) => {
     const body = request.body as { path?: unknown; config?: unknown };
-    const parsed = simulatorConfigSchema.safeParse(body.config);
+    const parsed = appConfigSchema.safeParse(body.config);
 
     if (!parsed.success) {
       return sendValidationError(reply, parsed.error);
@@ -114,10 +122,30 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
     const body = request.body as { path?: unknown };
     const filePath = resolveSavePath(body.path, defaultSavePath);
     currentConfig = await new ConfigStore(filePath).load();
+    runtime.syncServices(currentConfig);
     return { path: filePath, config: currentConfig };
   });
 
-  app.get("/api/status", async () => runtime.getStatus());
+  app.get("/api/status", async () => {
+    runtime.syncServices(await loadCurrentConfig());
+    return runtime.getStatus();
+  });
+
+  app.post("/api/services/:id/copy", async (request, reply) => {
+    const config = await loadCurrentConfig();
+    const { id } = request.params as { id: string };
+    const service = config.services.find((candidate) => candidate.id === id);
+
+    if (service === undefined) {
+      return reply.status(404).send({ error: `Service not found: ${id}` });
+    }
+
+    const copy = cloneServiceForCopy(service, config.services);
+    currentConfig = { services: [...config.services, copy] };
+    await configStore.save(currentConfig);
+    runtime.syncServices(currentConfig);
+    return copy;
+  });
 
   app.post("/api/preview", async (request, reply) => {
     const parsed = simulatorConfigSchema.safeParse(request.body);
@@ -129,13 +157,29 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
     return { message: generateMessageSnapshot(parsed.data.messageTemplate, parsed.data.parameters) };
   });
 
-  app.post("/api/start", async () => {
-    await runtime.start(await loadCurrentConfig());
+  app.post("/api/services/:id/start", async (request) => {
+    const { id } = request.params as { id: string };
+    const config = await loadCurrentConfig();
+    await runtime.startService(config, id);
     return runtime.getStatus();
   });
 
-  app.post("/api/stop", async () => {
-    await runtime.stop();
+  app.post("/api/services/:id/stop", async (request) => {
+    const { id } = request.params as { id: string };
+    await runtime.stopService(id);
+    runtime.syncServices(await loadCurrentConfig());
     return runtime.getStatus();
+  });
+
+  app.post("/api/start-all", async () => runtime.startAll(await loadCurrentConfig()));
+
+  app.post("/api/stop-all", async () => {
+    const config = await loadCurrentConfig();
+    const results = [];
+    for (const service of config.services) {
+      results.push(await runtime.stopService(service.id));
+    }
+    runtime.syncServices(config);
+    return results;
   });
 }

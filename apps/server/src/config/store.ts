@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { defaultConfig, simulatorConfigSchema, type SimulatorConfig } from "./schema.js";
+import { appConfigSchema, defaultAppConfig, toAppConfig, type AppConfig } from "./schema.js";
 
-const cloneDefaultConfig = () => simulatorConfigSchema.parse(structuredClone(defaultConfig));
+const cloneDefaultConfig = () => appConfigSchema.parse(structuredClone(defaultAppConfig));
 
 const isMissingFileError = (error: unknown) =>
   typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
@@ -10,10 +10,10 @@ const isMissingFileError = (error: unknown) =>
 export class ConfigStore {
   constructor(private readonly filePath: string) {}
 
-  async load(): Promise<SimulatorConfig> {
+  async load(): Promise<AppConfig> {
     try {
       const raw = await readFile(this.filePath, "utf8");
-      return simulatorConfigSchema.parse(JSON.parse(raw));
+      return toAppConfig(JSON.parse(raw));
     } catch (error) {
       if (isMissingFileError(error)) {
         return cloneDefaultConfig();
@@ -22,8 +22,8 @@ export class ConfigStore {
     }
   }
 
-  async save(config: SimulatorConfig): Promise<void> {
-    const parsed = simulatorConfigSchema.parse(config);
+  async save(config: AppConfig): Promise<void> {
+    const parsed = appConfigSchema.parse(config);
     await mkdir(dirname(this.filePath), { recursive: true });
     await writeFile(this.filePath, JSON.stringify(parsed, null, 2), "utf8");
   }

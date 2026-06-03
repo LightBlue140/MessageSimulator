@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SimulatorConfig } from "../src/config/schema.js";
 import { defaultConfig } from "../src/config/schema.js";
 import type { AdapterContext, AdapterStatus, SimulatorAdapter } from "../src/adapters/types.js";
+import type { AppConfig } from "../src/config/schema.js";
+import { MultiServiceRuntime } from "../src/runtime/multi-runtime.js";
 import { SimulatorRuntime } from "../src/runtime/runtime.js";
 
 class TestAdapter implements SimulatorAdapter {
@@ -186,5 +188,82 @@ describe("SimulatorRuntime", () => {
 
     expect(adapter.stops).toBe(2);
     expect(runtime.getStatus().running).toBe(false);
+  });
+});
+
+describe("MultiServiceRuntime", () => {
+  it("starts and stops individual services", async () => {
+    const adapter = new TestAdapter();
+    const appConfig: AppConfig = {
+      services: [{ id: "service-a", name: "HTTP A", config: testConfig() }]
+    };
+    const runtime = new MultiServiceRuntime(() => new SimulatorRuntime({ http: adapter }));
+
+    await runtime.startService(appConfig, "service-a");
+
+    expect(adapter.starts).toBe(1);
+    expect(runtime.getStatus().services[0]).toMatchObject({
+      id: "service-a",
+      name: "HTTP A",
+      running: true,
+      protocol: "http"
+    });
+
+    await runtime.stopService("service-a");
+
+    expect(adapter.stops).toBe(1);
+    expect(runtime.getStatus().services[0]).toMatchObject({
+      id: "service-a",
+      running: false,
+      protocol: undefined
+    });
+  });
+
+  it("starts all stopped services and stops all running services", async () => {
+    const adapters = [new TestAdapter(), new TestAdapter()];
+    let index = 0;
+    const appConfig: AppConfig = {
+      services: [
+        { id: "service-a", name: "HTTP A", config: testConfig() },
+        { id: "service-b", name: "HTTP B", config: testConfig() }
+      ]
+    };
+    const runtime = new MultiServiceRuntime(() => new SimulatorRuntime({ http: adapters[index++] }));
+
+    await runtime.startAll(appConfig);
+
+    expect(adapters.map((adapter) => adapter.starts)).toEqual([1, 1]);
+    expect(runtime.getStatus().services.map((service) => service.running)).toEqual([true, true]);
+
+    await runtime.stopAll();
+
+    expect(adapters.map((adapter) => adapter.stops)).toEqual([1, 1]);
+    expect(runtime.getStatus().services.map((service) => service.running)).toEqual([false, false]);
+  });
+
+  it("reports a service start failure without blocking other services", async () => {
+    const failingAdapter = new TestAdapter();
+    failingAdapter.startError = new Error("port busy");
+    const okAdapter = new TestAdapter();
+    const adapters = [failingAdapter, okAdapter];
+    let index = 0;
+    const appConfig: AppConfig = {
+      services: [
+        { id: "service-a", name: "Bad", config: testConfig() },
+        { id: "service-b", name: "Good", config: testConfig() }
+      ]
+    };
+    const runtime = new MultiServiceRuntime(() => new SimulatorRuntime({ http: adapters[index++] }));
+
+    const result = await runtime.startAll(appConfig);
+
+    expect(result).toEqual([
+      { id: "service-a", ok: false, error: "port busy" },
+      { id: "service-b", ok: true }
+    ]);
+    expect(runtime.getStatus().services).toEqual([
+      expect.objectContaining({ id: "service-a", running: false, error: "port busy" }),
+      expect.objectContaining({ id: "service-b", running: true, error: undefined })
+    ]);
   });
 });

@@ -6,6 +6,10 @@ import { App } from "../src/App";
 import { ConnectionInfo } from "../src/components/ConnectionInfo";
 import { defaultConfig } from "../src/types";
 
+const openDefaultService = () => {
+  fireEvent.click(screen.getByText("进入配置"));
+};
+
 describe("runtime controls", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -26,9 +30,16 @@ describe("runtime controls", () => {
     render(<App />);
 
     expect(screen.queryByLabelText("配置文件路径")).not.toBeInTheDocument();
+    expect(screen.getByText("服务管理")).toBeInTheDocument();
+    expect(screen.getByText("全部启动")).toBeInTheDocument();
+    expect(screen.getByText("全部停止")).toBeInTheDocument();
+    expect(screen.getByText("新建服务")).toBeInTheDocument();
+
+    openDefaultService();
+
     expect(screen.getByText("启动")).toBeInTheDocument();
     expect(screen.getByText("停止")).toBeInTheDocument();
-    expect(screen.getByText("预览生成消息")).toBeInTheDocument();
+    expect(screen.getByText("模拟数据")).toBeInTheDocument();
     expect(screen.getByText("保存配置文件")).toBeInTheDocument();
     expect(screen.getByText("加载配置文件")).toBeInTheDocument();
     expect(screen.getByText("参数页")).toBeInTheDocument();
@@ -63,16 +74,17 @@ describe("runtime controls", () => {
       if (String(url) === "/api/config") {
         return { ok: true, json: async () => ({}) };
       }
-      if (String(url) === "/api/start") {
-        return { ok: true, json: async () => ({ running: true, logs: [] }) };
+      if (String(url) === "/api/services/service-1/start") {
+        return { ok: true, json: async () => ({ services: [{ id: "service-1", name: "服务 1", running: true, logs: [] }] }) };
       }
-      if (String(url) === "/api/stop") {
-        return { ok: true, json: async () => ({ running: false, logs: [] }) };
+      if (String(url) === "/api/services/service-1/stop") {
+        return { ok: true, json: async () => ({ services: [{ id: "service-1", name: "服务 1", running: false, logs: [] }] }) };
       }
       throw new Error(`Unhandled request ${String(url)} ${init?.method ?? "GET"}`);
     });
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
+    openDefaultService();
 
     const start = screen.getByText("启动");
     const stop = screen.getByText("停止");
@@ -94,6 +106,7 @@ describe("runtime controls", () => {
 
   it("places config and message in independent scroll regions", () => {
     render(<App />);
+    openDefaultService();
 
     expect(screen.getByLabelText("配置区")).toHaveClass("scroll-region");
     expect(screen.getByLabelText("消息区")).toHaveClass("scroll-region", "resizable-panel");
@@ -103,6 +116,7 @@ describe("runtime controls", () => {
 
   it("switches parameters into a separate page", () => {
     render(<App />);
+    openDefaultService();
 
     fireEvent.click(screen.getByText("参数页"));
 
@@ -112,6 +126,7 @@ describe("runtime controls", () => {
 
   it("switches logs into a separate page", () => {
     render(<App />);
+    openDefaultService();
 
     fireEvent.click(screen.getByText("日志页"));
 
@@ -121,6 +136,7 @@ describe("runtime controls", () => {
 
   it("shows protocol-specific connection instructions", () => {
     render(<App />);
+    openDefaultService();
 
     expect(screen.getByText("连接方式")).toBeInTheDocument();
     expect(screen.getByText("GET")).toBeInTheDocument();
@@ -167,8 +183,31 @@ describe("runtime controls", () => {
     expect(screen.getByText("http://192.168.15.152:8080/message")).toBeInTheDocument();
   });
 
+  it("shows generated simulated data in a dialog", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes("/health")) {
+        throw new Error("offline");
+      }
+      if (String(url) === "/api/preview") {
+        return { ok: true, json: async () => ({ message: "{\"aa\":321}" }) };
+      }
+      throw new Error(`Unhandled request ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    openDefaultService();
+
+    fireEvent.click(screen.getByText("模拟数据"));
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole("dialog", { name: "模拟数据预览" })).toBeInTheDocument()
+    );
+    expect(screen.getByText("{\"aa\":321}")).toBeInTheDocument();
+  });
+
   it("uses a large message template editor", () => {
     render(<App />);
+    openDefaultService();
 
     expect(screen.getByLabelText("消息模板内容")).toHaveAttribute("rows", "16");
   });

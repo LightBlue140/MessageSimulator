@@ -7,20 +7,25 @@ const displayAddress = (address: string | undefined) =>
 
 export function ConnectionInfo({
   config,
-  adapterStatus
+  adapterStatus,
+  compact = false
 }: {
   config: SimulatorConfig;
   adapterStatus?: AdapterStatus;
+  compact?: boolean;
 }) {
   const actual = displayAddress(adapterStatus?.listenAddress);
   const mqtt = config.serverSettings.mqtt;
+  const sectionClassName = compact ? "connection-panel compact-connection" : "panel connection-panel";
 
   return (
-    <section className="panel connection-panel">
-      <div className="section-title">
-        <span className="eyebrow">Connection</span>
-        <h2>连接方式</h2>
-      </div>
+    <section className={sectionClassName}>
+      {!compact && (
+        <div className="section-title">
+          <span className="eyebrow">Connection</span>
+          <h2>连接方式</h2>
+        </div>
+      )}
 
       {config.protocol === "http" && (
         <dl className="connection-grid">

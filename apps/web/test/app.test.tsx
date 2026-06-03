@@ -3,8 +3,13 @@ import { describe, expect, it } from "vitest";
 import { App } from "../src/App";
 
 describe("App", () => {
-  it("renders editor view and opens parameter page", () => {
+  it("renders service dashboard and opens a service configuration page", () => {
     render(<App />);
+
+    expect(screen.getByText("服务管理")).toBeInTheDocument();
+    expect(screen.getByText("服务 1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("进入配置"));
 
     expect(screen.getByLabelText("协议")).toBeInTheDocument();
     expect(screen.getByText("消息模板")).toBeInTheDocument();

@@ -125,16 +125,12 @@ export function ParameterEditor({ parameters, onChange }: ParameterEditorProps) 
           {parameter.type === "string" && (
             <label>
               候选值 {parameter.name}
-              <textarea
-                rows={3}
-                value={parameter.candidates.join("\n")}
+              <input
+                value={parameter.candidates[0] ?? ""}
                 onChange={(event) =>
                   updateParameter(index, {
                     ...parameter,
-                    candidates: event.target.value
-                      .split(/\r?\n/)
-                      .map((value) => value.trim())
-                      .filter(Boolean)
+                    candidates: [event.target.value]
                   })
                 }
               />

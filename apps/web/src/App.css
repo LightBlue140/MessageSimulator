@@ -43,7 +43,8 @@ button:disabled {
   box-shadow: none;
 }
 
-.primary-action {
+.primary-action,
+.active-button {
   border-color: #2563eb;
   background: #2563eb;
   color: #ffffff;
@@ -102,10 +103,81 @@ button:disabled {
   gap: 10px;
 }
 
-.active-tab {
+.status-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: #475569;
+}
+
+.status-summary strong {
+  color: #2563eb;
+  font-size: 26px;
+}
+
+.dashboard-page {
+  min-height: 0;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.service-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.service-card h3 {
+  margin: 8px 0 2px;
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.service-card p {
+  margin: 0;
+  color: #64748b;
+}
+
+.status-pill {
+  display: inline-flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+}
+
+.status-pill.running {
   border-color: #2563eb;
   background: #eff6ff;
   color: #1d4ed8;
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.service-error {
+  color: #b91c1c;
+  font-size: 13px;
 }
 
 .editor-layout {
@@ -135,17 +207,19 @@ button:disabled {
 
 label {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   color: #334155;
   font-size: 13px;
   font-weight: 600;
-  margin: 10px 0;
+  margin: 7px 0;
 }
 
 .checkbox-label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 34px;
+  margin: 6px 0;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -161,7 +235,7 @@ textarea {
   border-radius: 8px;
   background: #ffffff;
   color: #0f172a;
-  padding: 9px 10px;
+  padding: 8px 10px;
 }
 
 input:focus,
@@ -229,6 +303,15 @@ legend {
   box-shadow: none;
   margin-top: 16px;
   padding: 0;
+}
+
+.compact-connection {
+  padding: 0;
+}
+
+.compact-connection .connection-grid {
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 6px 10px;
 }
 
 .preview-panel {
@@ -302,6 +385,16 @@ legend {
   gap: 10px;
 }
 
+.preview-dialog {
+  width: min(760px, 100%);
+}
+
+.preview-dialog pre {
+  max-height: 60vh;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 900px) {
   body {
     height: auto;
@@ -313,6 +406,7 @@ legend {
   }
 
   .topbar,
+  .dashboard-header,
   .toolbar,
   .action-group,
   .view-switcher {

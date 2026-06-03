@@ -1,14 +1,28 @@
 import Fastify from "fastify";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { HttpAdapter } from "../src/adapters/http.js";
 import type { AdapterContext } from "../src/adapters/types.js";
 import { registerRoutes } from "../src/api/routes.js";
-import { defaultConfig } from "../src/config/schema.js";
+import { defaultAppConfig, defaultConfig } from "../src/config/schema.js";
 import { ConfigStore } from "../src/config/store.js";
 import { RecentLogs } from "../src/runtime/logs.js";
+
+const getFreePort = async () =>
+  new Promise<number>((resolve, reject) => {
+    const server = createServer();
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        reject(new Error("Could not allocate a free port"));
+        return;
+      }
+      server.close(() => resolve(address.port));
+    });
+  });
 
 const createApp = async () => {
   const dir = await mkdtemp(join(tmpdir(), "sim-api-"));
@@ -37,7 +51,14 @@ describe("management API", () => {
       await rm(dir, { recursive: true, force: true });
     });
 
-    const config = { ...defaultConfig, messageTemplate: "saved={aa}" };
+    const config = {
+      services: [
+        {
+          ...defaultAppConfig.services[0],
+          config: { ...defaultConfig, messageTemplate: "saved={aa}" }
+        }
+      ]
+    };
 
     const save = await app.inject({ method: "PUT", url: "/api/config", payload: config });
     const load = await app.inject({ method: "GET", url: "/api/config" });
@@ -56,7 +77,14 @@ describe("management API", () => {
     });
 
     const filePath = join(dir, "presets", "custom.json");
-    const config = { ...defaultConfig, messageTemplate: "from-file={aa}" };
+    const config = {
+      services: [
+        {
+          ...defaultAppConfig.services[0],
+          config: { ...defaultConfig, messageTemplate: "from-file={aa}" }
+        }
+      ]
+    };
 
     const save = await app.inject({
       method: "POST",
@@ -83,7 +111,14 @@ describe("management API", () => {
       await rm(dir, { recursive: true, force: true });
     });
 
-    const config = { ...defaultConfig, messageTemplate: "default-save={aa}" };
+    const config = {
+      services: [
+        {
+          ...defaultAppConfig.services[0],
+          config: { ...defaultConfig, messageTemplate: "default-save={aa}" }
+        }
+      ]
+    };
     const response = await app.inject({
       method: "POST",
       url: "/api/config-file/save",
@@ -101,7 +136,14 @@ describe("management API", () => {
       await rm(dir, { recursive: true, force: true });
     });
 
-    const config = { ...defaultConfig, messageTemplate: "relative-save={aa}" };
+    const config = {
+      services: [
+        {
+          ...defaultAppConfig.services[0],
+          config: { ...defaultConfig, messageTemplate: "relative-save={aa}" }
+        }
+      ]
+    };
     const response = await app.inject({
       method: "POST",
       url: "/api/config-file/save",
@@ -125,7 +167,14 @@ describe("management API", () => {
       url: "/api/config-file/save",
       payload: {
         path: filePath,
-        config: { ...defaultConfig, logs: [{ level: "info", message: "should not persist" }] }
+        config: {
+          services: [
+            {
+              ...defaultAppConfig.services[0],
+              config: { ...defaultConfig, logs: [{ level: "info", message: "should not persist" }] }
+            }
+          ]
+        }
       }
     });
 
@@ -141,14 +190,118 @@ describe("management API", () => {
     });
 
     const initial = await app.inject({ method: "GET", url: "/api/status" });
-    const stopped = await app.inject({ method: "POST", url: "/api/stop" });
+    const stopped = await app.inject({ method: "POST", url: "/api/stop-all" });
 
     expect(initial.statusCode).toBe(200);
-    expect(initial.json()).toMatchObject({ running: false });
-    expect(initial.json().adapterStatus).toBeUndefined();
+    expect(initial.json().services).toEqual([
+      expect.objectContaining({ id: "service-1", name: "服务 1", running: false })
+    ]);
     expect(stopped.statusCode).toBe(200);
-    expect(stopped.json()).toMatchObject({ running: false });
-    expect(stopped.json().adapterStatus).toBeUndefined();
+    expect(stopped.json()).toEqual([{ id: "service-1", ok: true }]);
+  });
+
+  it("copies a service and saves the new app config", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const copy = await app.inject({ method: "POST", url: "/api/services/service-1/copy" });
+    const config = await app.inject({ method: "GET", url: "/api/config" });
+
+    expect(copy.statusCode).toBe(200);
+    expect(copy.json()).toMatchObject({ id: "service-2", name: "服务 1 副本" });
+    expect(config.json().services).toHaveLength(2);
+  });
+
+  it("starts multiple MQTT and TCP services and then stops them all", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const mqttPort = await getFreePort();
+    const tcpPortA = await getFreePort();
+    const tcpPortB = await getFreePort();
+    const config = {
+      services: [
+        {
+          id: "mqtt-a",
+          name: "MQTT A",
+          config: {
+            ...defaultConfig,
+            protocol: "mqtt" as const,
+            serverSettings: {
+              ...defaultConfig.serverSettings,
+              mqtt: { ...defaultConfig.serverSettings.mqtt, port: mqttPort, topic: "simulator/a" }
+            }
+          }
+        },
+        {
+          id: "mqtt-b",
+          name: "MQTT B",
+          config: {
+            ...defaultConfig,
+            protocol: "mqtt" as const,
+            serverSettings: {
+              ...defaultConfig.serverSettings,
+              mqtt: { ...defaultConfig.serverSettings.mqtt, port: mqttPort, topic: "simulator/b" }
+            }
+          }
+        },
+        {
+          id: "tcp-a",
+          name: "TCP A",
+          config: {
+            ...defaultConfig,
+            protocol: "tcp" as const,
+            serverSettings: {
+              ...defaultConfig.serverSettings,
+              tcp: { ...defaultConfig.serverSettings.tcp, port: tcpPortA }
+            }
+          }
+        },
+        {
+          id: "tcp-b",
+          name: "TCP B",
+          config: {
+            ...defaultConfig,
+            protocol: "tcp" as const,
+            serverSettings: {
+              ...defaultConfig.serverSettings,
+              tcp: { ...defaultConfig.serverSettings.tcp, port: tcpPortB }
+            }
+          }
+        }
+      ]
+    };
+
+    const save = await app.inject({ method: "PUT", url: "/api/config", payload: config });
+    const started = await app.inject({ method: "POST", url: "/api/start-all" });
+    const status = await app.inject({ method: "GET", url: "/api/status" });
+    const stopped = await app.inject({ method: "POST", url: "/api/stop-all" });
+
+    expect(save.statusCode).toBe(200);
+    expect(started.json()).toEqual([
+      { id: "mqtt-a", ok: true },
+      { id: "mqtt-b", ok: true },
+      { id: "tcp-a", ok: true },
+      { id: "tcp-b", ok: true }
+    ]);
+    expect(status.json().services).toEqual([
+      expect.objectContaining({ id: "mqtt-a", running: true, adapterStatus: { listenAddress: `mqtt://0.0.0.0:${mqttPort}`, connectedClients: 0 } }),
+      expect.objectContaining({ id: "mqtt-b", running: true, adapterStatus: { listenAddress: `mqtt://0.0.0.0:${mqttPort}`, connectedClients: 0 } }),
+      expect.objectContaining({ id: "tcp-a", running: true, adapterStatus: { listenAddress: `tcp://0.0.0.0:${tcpPortA}`, connectedClients: 0 } }),
+      expect.objectContaining({ id: "tcp-b", running: true, adapterStatus: { listenAddress: `tcp://0.0.0.0:${tcpPortB}`, connectedClients: 0 } })
+    ]);
+    expect(stopped.json()).toEqual([
+      { id: "mqtt-a", ok: true },
+      { id: "mqtt-b", ok: true },
+      { id: "tcp-a", ok: true },
+      { id: "tcp-b", ok: true }
+    ]);
   });
 
   it("previews a generated message without starting the simulator", async () => {
