@@ -111,4 +111,33 @@ describe("MQTT and OPC UA adapters", () => {
       await first.stop();
     }
   });
+
+  it("allows multiple OPC UA nodes to share the same server", async () => {
+    const port = await getFreePort();
+    const first = new OpcUaAdapter();
+    const second = new OpcUaAdapter();
+    const contextFor = (nodeId: string): AdapterContext => ({
+      config: {
+        ...defaultConfig,
+        protocol: "opcua",
+        serverSettings: {
+          ...defaultConfig.serverSettings,
+          opcua: { ...defaultConfig.serverSettings.opcua, port, nodeId }
+        }
+      },
+      getSnapshot: () => "snapshot",
+      logs: new RecentLogs()
+    });
+
+    try {
+      await first.start(contextFor("s=MessageA"));
+      await second.start(contextFor("s=MessageB"));
+
+      expect(first.getStatus().listenAddress).toBe(`opc.tcp://0.0.0.0:${port}/simulator`);
+      expect(second.getStatus().listenAddress).toBe(`opc.tcp://0.0.0.0:${port}/simulator`);
+    } finally {
+      await second.stop();
+      await first.stop();
+    }
+  });
 });

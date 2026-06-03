@@ -177,6 +177,25 @@ const nextMqttTopic = (topic: string, services: SimulatorService[]) => {
   return candidate;
 };
 
+const nextOpcUaNodeId = (nodeId: string, services: SimulatorService[]) => {
+  const existingNodeIds = new Set(
+    services
+      .filter((service) => service.config.protocol === "opcua")
+      .map((service) => service.config.serverSettings.opcua.nodeId)
+  );
+  const baseNodeId = nodeId.startsWith("s=") ? nodeId.slice(2) : nodeId;
+  const prefix = nodeId.startsWith("s=") ? "s=" : "";
+  let index = 1;
+  let candidate = `${prefix}${baseNodeId}-copy-${index}`;
+
+  while (existingNodeIds.has(candidate)) {
+    index += 1;
+    candidate = `${prefix}${baseNodeId}-copy-${index}`;
+  }
+
+  return candidate;
+};
+
 export const toAppConfig = (input: unknown): AppConfig => {
   const parsedAppConfig = appConfigSchema.safeParse(input);
   if (parsedAppConfig.success) {
@@ -202,6 +221,13 @@ export const cloneServiceForCopy = (
   if (copy.config.protocol === "mqtt") {
     copy.config.serverSettings.mqtt.topic = nextMqttTopic(
       service.config.serverSettings.mqtt.topic,
+      existingServices
+    );
+  }
+
+  if (copy.config.protocol === "opcua") {
+    copy.config.serverSettings.opcua.nodeId = nextOpcUaNodeId(
+      service.config.serverSettings.opcua.nodeId,
       existingServices
     );
   }

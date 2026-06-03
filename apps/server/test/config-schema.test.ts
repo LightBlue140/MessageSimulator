@@ -131,4 +131,28 @@ describe("appConfigSchema", () => {
     expect(copy.config.serverSettings.mqtt.topic).toBe("simulator/message-copy-1");
     expect(copy.config.messageTemplate).toBe(source.config.messageTemplate);
   });
+
+  it("copies a service and changes duplicated OPC UA node ids", () => {
+    const source = {
+      id: "opcua-1",
+      name: "OPC UA",
+      config: {
+        ...defaultConfig,
+        protocol: "opcua" as const,
+        serverSettings: {
+          ...defaultConfig.serverSettings,
+          opcua: { ...defaultConfig.serverSettings.opcua, nodeId: "s=Message" }
+        }
+      }
+    };
+
+    const copy = cloneServiceForCopy(source, [source]);
+
+    expect(copy.id).not.toBe(source.id);
+    expect(copy.name).toBe("OPC UA 副本");
+    expect(copy.config.serverSettings.opcua.port).toBe(source.config.serverSettings.opcua.port);
+    expect(copy.config.serverSettings.opcua.endpointPath).toBe(source.config.serverSettings.opcua.endpointPath);
+    expect(copy.config.serverSettings.opcua.nodeId).toBe("s=Message-copy-1");
+    expect(copy.config.messageTemplate).toBe(source.config.messageTemplate);
+  });
 });

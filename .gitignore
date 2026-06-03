@@ -5,6 +5,8 @@ coverage/
 data/
 apps/server/data/
 save/
+.opcua-pki/
+apps/server/.opcua-pki/
 
 .env
 .env.*
