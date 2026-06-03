@@ -44,14 +44,14 @@ describe("dynamic forms", () => {
     expect(screen.getByLabelText("启用").closest("label")).toHaveClass("checkbox-label");
   });
 
-  it("uses a single input for string candidates", () => {
+  it("uses multiline string enum candidates", () => {
     openDefaultService();
 
     fireEvent.click(screen.getByText("参数页"));
     fireEvent.change(screen.getByLabelText("参数类型 aa"), { target: { value: "string" } });
-    fireEvent.change(screen.getByLabelText("候选值 aa"), { target: { value: "one" } });
+    fireEvent.change(screen.getByLabelText("候选值 aa"), { target: { value: "one\ntwo" } });
 
-    expect(screen.getByLabelText("候选值 aa")).toHaveValue("one");
+    expect(screen.getByLabelText("候选值 aa")).toHaveValue("one\ntwo");
   });
 
   it("marks send interval unused for HTTP", () => {
