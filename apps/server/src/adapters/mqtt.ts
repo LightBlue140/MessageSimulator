@@ -145,8 +145,18 @@ export class MqttAdapter implements SimulatorAdapter {
       }
     });
 
-    await new Promise<void>((resolve) => {
-      server.listen(settings.port, "0.0.0.0", resolve);
+    await new Promise<void>((resolve, reject) => {
+      const onError = (error: Error) => {
+        server.off("listening", onListening);
+        reject(error);
+      };
+      const onListening = () => {
+        server.off("error", onError);
+        resolve();
+      };
+      server.once("error", onError);
+      server.once("listening", onListening);
+      server.listen(settings.port, "0.0.0.0");
     });
 
     brokers.set(settings.port, shared);

@@ -36,8 +36,8 @@ describe("runtime controls", () => {
     expect(screen.getByText("新建服务")).toBeInTheDocument();
     expect(screen.getByText("日志页")).toBeInTheDocument();
     const quickActions = screen.getByLabelText("服务快捷操作");
-    expect(within(quickActions).getByText("全部启动")).toBeInTheDocument();
-    expect(within(quickActions).getByText("全部停止")).toBeInTheDocument();
+    expect(within(quickActions).getByText("全部启动")).not.toHaveClass("active-button");
+    expect(within(quickActions).getByText("全部停止")).not.toHaveClass("active-button");
     expect(within(quickActions).getByText("新建服务")).toBeInTheDocument();
 
     openDefaultService();
@@ -99,10 +99,14 @@ describe("runtime controls", () => {
 
     expect(start).toBeEnabled();
     expect(stop).toBeDisabled();
+    expect(start).not.toHaveClass("active-button");
+    expect(stop).toHaveClass("active-button");
 
     fireEvent.click(start);
     await vi.waitFor(() => expect(stop).toBeEnabled());
     expect(start).toBeDisabled();
+    expect(start).toHaveClass("active-button");
+    expect(stop).not.toHaveClass("active-button");
     expect(screen.getByText("运行中")).toHaveClass("running");
 
     const requestsAfterStart = fetchMock.mock.calls.length;
@@ -157,6 +161,14 @@ describe("runtime controls", () => {
 
     await vi.waitFor(() => expect(screen.queryByText("服务 1 副本")).not.toBeInTheDocument());
     expect(fetchMock).toHaveBeenCalledWith("/api/services/service-2", { method: "DELETE" });
+  });
+
+  it("assigns a free HTTP port when creating a new service", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText("新建服务"));
+
+    expect(screen.getByText("http://localhost:8081/message")).toBeInTheDocument();
   });
 
   it("opens configuration from the service card but not from card controls", async () => {

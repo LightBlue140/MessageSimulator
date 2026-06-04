@@ -334,6 +334,58 @@ describe("management API", () => {
     ]);
   });
 
+  it("reports duplicated TCP ports during start-all without crashing the API", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const tcpPort = await getFreePort();
+    const config = {
+      services: [
+        {
+          id: "tcp-a",
+          name: "TCP A",
+          config: {
+            ...defaultConfig,
+            protocol: "tcp" as const,
+            serverSettings: {
+              ...defaultConfig.serverSettings,
+              tcp: { ...defaultConfig.serverSettings.tcp, port: tcpPort }
+            }
+          }
+        },
+        {
+          id: "tcp-b",
+          name: "TCP B",
+          config: {
+            ...defaultConfig,
+            protocol: "tcp" as const,
+            serverSettings: {
+              ...defaultConfig.serverSettings,
+              tcp: { ...defaultConfig.serverSettings.tcp, port: tcpPort }
+            }
+          }
+        }
+      ]
+    };
+
+    await app.inject({ method: "PUT", url: "/api/config", payload: config });
+
+    const started = await app.inject({ method: "POST", url: "/api/start-all" });
+    const status = await app.inject({ method: "GET", url: "/api/status" });
+    const stopped = await app.inject({ method: "POST", url: "/api/stop-all" });
+
+    expect(started.statusCode).toBe(200);
+    expect(started.json()).toEqual([
+      { id: "tcp-a", ok: true },
+      expect.objectContaining({ id: "tcp-b", ok: false })
+    ]);
+    expect(status.statusCode).toBe(200);
+    expect(stopped.statusCode).toBe(200);
+  });
+
   it("previews a generated message without starting the simulator", async () => {
     const { app, dir } = await createApp();
     cleanup.push(async () => {

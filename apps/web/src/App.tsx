@@ -43,6 +43,36 @@ const nextServiceId = (services: AppConfig["services"]) => {
   return `service-${index}`;
 };
 
+const listenPortFor = (service: AppConfig["services"][number]) => {
+  switch (service.config.protocol) {
+    case "http":
+      return service.config.serverSettings.http.port;
+    case "websocket":
+      return service.config.serverSettings.websocket.port;
+    case "tcp":
+      return service.config.serverSettings.tcp.port;
+    case "mqtt":
+      return service.config.serverSettings.mqtt.port;
+    case "opcua":
+      return service.config.serverSettings.opcua.port;
+  }
+};
+
+const nextListenPort = (port: number, services: AppConfig["services"]) => {
+  const usedPorts = new Set(services.map(listenPortFor));
+  let candidate = port;
+  while (usedPorts.has(candidate) && candidate < 65535) {
+    candidate += 1;
+  }
+  return candidate;
+};
+
+const configForNewService = (services: AppConfig["services"]) => {
+  const config = cloneConfig(defaultConfig);
+  config.serverSettings.http.port = nextListenPort(defaultConfig.serverSettings.http.port, services);
+  return config;
+};
+
 export function App() {
   const [appConfig, setAppConfig] = useState<AppConfig>(defaultAppConfig);
   const [runtimeStatus, setRuntimeStatus] = useState<MultiServiceRuntimeStatus>({ services: [] });
@@ -196,7 +226,7 @@ export function App() {
     setAppConfig({
       services: [
         ...appConfig.services,
-        { id, name: `服务 ${appConfig.services.length + 1}`, config: cloneConfig(defaultConfig) }
+        { id, name: `服务 ${appConfig.services.length + 1}`, config: configForNewService(appConfig.services) }
       ]
     });
     setSelectedServiceId(id);
@@ -397,10 +427,10 @@ function ServiceDashboard({
             <h2>服务管理</h2>
           </div>
           <div className="action-group quick-actions" aria-label="服务快捷操作">
-            <button className="active-button" type="button" disabled={pendingAction !== undefined} onClick={onStartAll}>
+            <button type="button" onClick={onStartAll}>
               全部启动
             </button>
-            <button type="button" disabled={pendingAction !== undefined} onClick={onStopAll}>
+            <button type="button" onClick={onStopAll}>
               全部停止
             </button>
             <button type="button" onClick={onAdd}>
@@ -461,7 +491,7 @@ function ServiceDashboard({
                     onKeyDown={(event) => event.stopPropagation()}
                   >
                     <button
-                      className={running ? "" : "active-button"}
+                      className={running ? "active-button" : ""}
                       type="button"
                       disabled={running || pendingAction !== undefined}
                       onClick={() => onStart(service.id)}
@@ -469,6 +499,7 @@ function ServiceDashboard({
                       启动
                     </button>
                     <button
+                      className={running ? "" : "active-button"}
                       type="button"
                       disabled={!running || pendingAction !== undefined}
                       onClick={() => onStop(service.id)}

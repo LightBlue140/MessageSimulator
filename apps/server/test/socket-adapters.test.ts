@@ -80,4 +80,26 @@ describe("socket adapters", () => {
     }
     expect(adapter.getStatus().connectedClients).toBe(0);
   });
+
+  it("rejects duplicate socket ports without leaving unhandled listen errors", async () => {
+    const tcpFirst = new TcpAdapter();
+    const tcpSecond = new TcpAdapter();
+    const wsFirst = new WebSocketAdapter();
+    const wsSecond = new WebSocketAdapter();
+
+    await tcpFirst.start(contextFor("tcp", 0));
+    await wsFirst.start(contextFor("websocket", 0));
+    const tcpPort = Number(tcpFirst.getStatus().listenAddress?.split(":").pop());
+    const wsPort = Number(wsFirst.getStatus().listenAddress?.split(":").pop());
+
+    try {
+      await expect(tcpSecond.start(contextFor("tcp", tcpPort))).rejects.toThrow(/EADDRINUSE/);
+      await expect(wsSecond.start(contextFor("websocket", wsPort))).rejects.toThrow(/EADDRINUSE/);
+    } finally {
+      await tcpSecond.stop();
+      await wsSecond.stop();
+      await tcpFirst.stop();
+      await wsFirst.stop();
+    }
+  });
 });

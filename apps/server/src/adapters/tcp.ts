@@ -19,8 +19,23 @@ export class TcpAdapter implements SimulatorAdapter {
       });
     });
 
-    await new Promise<void>((resolve) => {
-      this.server!.listen(settings.port, "0.0.0.0", resolve);
+    await new Promise<void>((resolve, reject) => {
+      const server = this.server!;
+      const keepHandled = () => undefined;
+      const onError = (error: Error) => {
+        server.off("error", keepHandled);
+        server.off("listening", onListening);
+        reject(error);
+      };
+      const onListening = () => {
+        server.off("error", keepHandled);
+        server.off("error", onError);
+        resolve();
+      };
+      server.on("error", keepHandled);
+      server.once("error", onError);
+      server.once("listening", onListening);
+      server.listen(settings.port, "0.0.0.0");
     });
 
     this.listenAddress = this.addressFromServer();
@@ -47,7 +62,11 @@ export class TcpAdapter implements SimulatorAdapter {
     this.clients.clear();
 
     await new Promise<void>((resolve) => {
-      this.server?.close(() => resolve()) ?? resolve();
+      if (this.server === undefined || !this.server.listening) {
+        resolve();
+        return;
+      }
+      this.server.close(() => resolve());
     });
 
     this.server = undefined;
