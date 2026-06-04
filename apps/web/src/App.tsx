@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   copyService,
+  deleteService,
   getConfig,
   getStatus,
   isBackendAvailable,
@@ -173,6 +174,23 @@ export function App() {
       setRuntimeStatus(await getStatus());
     });
 
+  const handleDeleteService = (serviceId: string) =>
+    runAction(async () => {
+      if (appConfig.services.length <= 1) {
+        return;
+      }
+      setPendingAction(`delete-${serviceId}`);
+      try {
+        await saveConfig(appConfig);
+        await deleteService(serviceId);
+        const loaded = await getConfig();
+        setAppConfig(loaded);
+        setRuntimeStatus(await getStatus());
+      } finally {
+        setPendingAction(undefined);
+      }
+    });
+
   const handleAddService = () => {
     const id = nextServiceId(appConfig.services);
     setAppConfig({
@@ -242,6 +260,7 @@ export function App() {
           runtimeStatus={runtimeStatus}
           onAdd={handleAddService}
           onCopy={handleCopyService}
+          onDelete={handleDeleteService}
           onLoad={() => setConfigFileDialogMode("load")}
           onSave={() => setConfigFileDialogMode("save")}
           onSelect={(serviceId) => {
@@ -327,6 +346,7 @@ function ServiceDashboard({
   runtimeStatus,
   onAdd,
   onCopy,
+  onDelete,
   onLoad,
   onSave,
   onSelect,
@@ -349,6 +369,7 @@ function ServiceDashboard({
   runtimeStatus: MultiServiceRuntimeStatus;
   onAdd: () => void;
   onCopy: (serviceId: string) => void;
+  onDelete: (serviceId: string) => void;
   onLoad: () => void;
   onSave: () => void;
   onSelect: (serviceId: string) => void;
@@ -426,6 +447,13 @@ function ServiceDashboard({
                   </button>
                   <button type="button" onClick={() => onCopy(service.id)}>
                     复制
+                  </button>
+                  <button
+                    type="button"
+                    disabled={appConfig.services.length <= 1 || pendingAction !== undefined}
+                    onClick={() => onDelete(service.id)}
+                  >
+                    删除
                   </button>
                   <button
                     className={running ? "" : "active-button"}

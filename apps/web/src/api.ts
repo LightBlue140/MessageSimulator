@@ -97,6 +97,14 @@ export async function copyService(serviceId: string) {
   return response.json() as Promise<SimulatorService>;
 }
 
+export async function deleteService(serviceId: string) {
+  const response = await fetch(`${baseUrl}/services/${serviceId}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json() as Promise<{ id: string; ok: boolean }>;
+}
+
 export async function getStatus() {
   const response = await fetch(`${baseUrl}/status`);
   if (!response.ok) {

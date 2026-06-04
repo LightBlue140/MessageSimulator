@@ -132,6 +132,53 @@ describe("appConfigSchema", () => {
     expect(copy.config.messageTemplate).toBe(source.config.messageTemplate);
   });
 
+  it("copies HTTP, WebSocket, and TCP services to unused listen ports", () => {
+    const httpSource = {
+      id: "http-1",
+      name: "HTTP",
+      config: {
+        ...defaultConfig,
+        protocol: "http" as const,
+        serverSettings: {
+          ...defaultConfig.serverSettings,
+          http: { ...defaultConfig.serverSettings.http, port: 8080 }
+        }
+      }
+    };
+    const websocketService = {
+      id: "websocket-1",
+      name: "WebSocket",
+      config: {
+        ...defaultConfig,
+        protocol: "websocket" as const,
+        serverSettings: {
+          ...defaultConfig.serverSettings,
+          websocket: { ...defaultConfig.serverSettings.websocket, port: 8081 }
+        }
+      }
+    };
+    const tcpSource = {
+      id: "tcp-1",
+      name: "TCP",
+      config: {
+        ...defaultConfig,
+        protocol: "tcp" as const,
+        serverSettings: {
+          ...defaultConfig.serverSettings,
+          tcp: { ...defaultConfig.serverSettings.tcp, port: 9000 }
+        }
+      }
+    };
+
+    const httpCopy = cloneServiceForCopy(httpSource, [httpSource, websocketService, tcpSource]);
+    const websocketCopy = cloneServiceForCopy(websocketService, [httpSource, websocketService, tcpSource]);
+    const tcpCopy = cloneServiceForCopy(tcpSource, [httpSource, websocketService, tcpSource]);
+
+    expect(httpCopy.config.serverSettings.http.port).toBe(8082);
+    expect(websocketCopy.config.serverSettings.websocket.port).toBe(8082);
+    expect(tcpCopy.config.serverSettings.tcp.port).toBe(9001);
+  });
+
   it("copies a service and changes duplicated OPC UA node ids", () => {
     const source = {
       id: "opcua-1",

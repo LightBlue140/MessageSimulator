@@ -196,6 +196,35 @@ const nextOpcUaNodeId = (nodeId: string, services: SimulatorService[]) => {
   return candidate;
 };
 
+const listenPortFor = (service: SimulatorService) => {
+  switch (service.config.protocol) {
+    case "http":
+      return service.config.serverSettings.http.port;
+    case "websocket":
+      return service.config.serverSettings.websocket.port;
+    case "tcp":
+      return service.config.serverSettings.tcp.port;
+    case "mqtt":
+      return service.config.serverSettings.mqtt.port;
+    case "opcua":
+      return service.config.serverSettings.opcua.port;
+  }
+};
+
+const nextListenPort = (port: number, services: SimulatorService[]) => {
+  const usedPorts = new Set(services.map(listenPortFor));
+  let candidate = port;
+
+  while (usedPorts.has(candidate)) {
+    candidate += 1;
+    if (candidate > 65535) {
+      throw new Error("No available port for copied service");
+    }
+  }
+
+  return candidate;
+};
+
 export const toAppConfig = (input: unknown): AppConfig => {
   const parsedAppConfig = appConfigSchema.safeParse(input);
   if (parsedAppConfig.success) {
@@ -221,6 +250,27 @@ export const cloneServiceForCopy = (
   if (copy.config.protocol === "mqtt") {
     copy.config.serverSettings.mqtt.topic = nextMqttTopic(
       service.config.serverSettings.mqtt.topic,
+      existingServices
+    );
+  }
+
+  if (copy.config.protocol === "http") {
+    copy.config.serverSettings.http.port = nextListenPort(
+      service.config.serverSettings.http.port,
+      existingServices
+    );
+  }
+
+  if (copy.config.protocol === "websocket") {
+    copy.config.serverSettings.websocket.port = nextListenPort(
+      service.config.serverSettings.websocket.port,
+      existingServices
+    );
+  }
+
+  if (copy.config.protocol === "tcp") {
+    copy.config.serverSettings.tcp.port = nextListenPort(
+      service.config.serverSettings.tcp.port,
       existingServices
     );
   }

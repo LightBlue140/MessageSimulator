@@ -147,6 +147,26 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
     return copy;
   });
 
+  app.delete("/api/services/:id", async (request, reply) => {
+    const config = await loadCurrentConfig();
+    const { id } = request.params as { id: string };
+    const service = config.services.find((candidate) => candidate.id === id);
+
+    if (service === undefined) {
+      return reply.status(404).send({ error: `Service not found: ${id}` });
+    }
+
+    if (config.services.length <= 1) {
+      return reply.status(400).send({ error: "At least one service is required" });
+    }
+
+    await runtime.stopService(id);
+    currentConfig = { services: config.services.filter((candidate) => candidate.id !== id) };
+    await configStore.save(currentConfig);
+    runtime.syncServices(currentConfig);
+    return { id, ok: true };
+  });
+
   app.post("/api/preview", async (request, reply) => {
     const parsed = simulatorConfigSchema.safeParse(request.body);
 

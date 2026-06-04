@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   copyService,
+  deleteService,
   getConfig,
   loadConfigFile,
   saveConfigFile,
@@ -76,11 +77,13 @@ describe("api", () => {
     await startAllServices();
     await stopAllServices();
     await copyService("service-1");
+    await deleteService("service-1");
 
     expect(fetchMock).toHaveBeenCalledWith("/api/services/service-1/start", { method: "POST" });
     expect(fetchMock).toHaveBeenCalledWith("/api/services/service-1/stop", { method: "POST" });
     expect(fetchMock).toHaveBeenCalledWith("/api/start-all", { method: "POST" });
     expect(fetchMock).toHaveBeenCalledWith("/api/stop-all", { method: "POST" });
     expect(fetchMock).toHaveBeenCalledWith("/api/services/service-1/copy", { method: "POST" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/services/service-1", { method: "DELETE" });
   });
 });

@@ -110,6 +110,51 @@ describe("runtime controls", () => {
     expect(stop).toBeDisabled();
   });
 
+  it("deletes a copied service from the service dashboard", async () => {
+    const copiedConfig = {
+      services: [
+        { id: "service-1", name: "服务 1", config: defaultConfig },
+        { id: "service-2", name: "服务 1 副本", config: defaultConfig }
+      ]
+    };
+    const singleConfig = {
+      services: [{ id: "service-1", name: "服务 1", config: defaultConfig }]
+    };
+    let storedConfig = singleConfig;
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes("/health")) {
+        throw new Error("offline");
+      }
+      if (String(url) === "/api/config") {
+        return { ok: true, json: async () => storedConfig };
+      }
+      if (String(url) === "/api/services/service-1/copy") {
+        storedConfig = copiedConfig;
+        return { ok: true, json: async () => copiedConfig.services[1] };
+      }
+      if (String(url) === "/api/services/service-2") {
+        storedConfig = singleConfig;
+        return { ok: true, json: async () => ({ id: "service-2", ok: true }) };
+      }
+      if (String(url) === "/api/status") {
+        return { ok: true, json: async () => ({ services: [] }) };
+      }
+      throw new Error(`Unhandled request ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(screen.getByText("复制"));
+    await vi.waitFor(() => expect(screen.getByText("服务 1 副本")).toBeInTheDocument());
+
+    const copiedCard = screen.getByText("服务 1 副本").closest("article");
+    expect(copiedCard).not.toBeNull();
+    fireEvent.click(within(copiedCard as HTMLElement).getByText("删除"));
+
+    await vi.waitFor(() => expect(screen.queryByText("服务 1 副本")).not.toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledWith("/api/services/service-2", { method: "DELETE" });
+  });
+
   it("places config and message in independent scroll regions", () => {
     render(<App />);
     openDefaultService();

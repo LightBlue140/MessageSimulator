@@ -215,6 +215,36 @@ describe("management API", () => {
     expect(config.json().services).toHaveLength(2);
   });
 
+  it("deletes a copied service and saves the remaining app config", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    await app.inject({ method: "POST", url: "/api/services/service-1/copy" });
+
+    const deleted = await app.inject({ method: "DELETE", url: "/api/services/service-2" });
+    const config = await app.inject({ method: "GET", url: "/api/config" });
+
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json()).toEqual({ id: "service-2", ok: true });
+    expect(config.json().services).toEqual([expect.objectContaining({ id: "service-1" })]);
+  });
+
+  it("does not delete the last service", async () => {
+    const { app, dir } = await createApp();
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const deleted = await app.inject({ method: "DELETE", url: "/api/services/service-1" });
+
+    expect(deleted.statusCode).toBe(400);
+    expect(deleted.json()).toEqual({ error: "At least one service is required" });
+  });
+
   it("starts multiple MQTT and TCP services and then stops them all", async () => {
     const { app, dir } = await createApp();
     cleanup.push(async () => {
