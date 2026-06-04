@@ -1,4 +1,4 @@
-const [, , url, timeoutSeconds = "30"] = process.argv;
+const [, , url, timeoutSeconds = "90"] = process.argv;
 
 if (!url) {
   console.error("Usage: node scripts/wait-for-url.mjs <url> [timeoutSeconds]");
@@ -6,6 +6,7 @@ if (!url) {
 }
 
 const timeoutAt = Date.now() + Number(timeoutSeconds) * 1000;
+let lastMessageAt = 0;
 
 while (Date.now() < timeoutAt) {
   try {
@@ -16,6 +17,11 @@ while (Date.now() < timeoutAt) {
     }
   } catch {
     // Keep waiting until the timeout.
+  }
+
+  if (Date.now() - lastMessageAt > 5000) {
+    console.log(`Waiting for ${url} ...`);
+    lastMessageAt = Date.now();
   }
 
   await new Promise((resolve) => setTimeout(resolve, 500));

@@ -5,32 +5,41 @@ set "ROOT=%ROOT:~0,-1%"
 cd /d "%ROOT%"
 
 echo ========================================
-echo    Message Simulator - Qi Dong Zhong...
+echo    Message Simulator - Starting...
 echo ========================================
+echo.
+
+echo Checking dependencies...
+node scripts\ensure-deps.mjs
+if errorlevel 1 (
+  echo Dependency installation failed. Check the output above.
+  pause
+  exit /b 1
+)
 echo.
 
 echo Cleaning occupied ports 3001 and 5173...
 node scripts\clear-ports.mjs 3001 5173
 echo.
 
-echo [1/2] Qi Dong Hou Duan...
-start "Server" cmd /k "cd /d %ROOT% && npm run dev"
+echo [1/2] Starting backend...
+start "Server" cmd /k "cd /d ""%ROOT%"" && npm run dev"
 
-node scripts\wait-for-url.mjs http://localhost:3001/health 30
+node scripts\wait-for-url.mjs http://localhost:3001/health 90
 if errorlevel 1 (
   echo Backend did not become ready. Check the Server window.
   pause
   exit /b 1
 )
 
-echo [2/2] Qi Dong Qian Duan...
-start "Web" cmd /k "cd /d %ROOT% && npm run dev:web"
+echo [2/2] Starting frontend...
+start "Web" cmd /k "cd /d ""%ROOT%"" && npm run dev:web"
 
 echo.
 echo ========================================
-echo    Wan Cheng!
-echo    Hou Duan: http://localhost:3001
-echo    Qian Duan: http://localhost:5173
+echo    Done!
+echo    Backend:  http://localhost:3001
+echo    Frontend: http://localhost:5173
 echo ========================================
 echo.
 exit /b 0
