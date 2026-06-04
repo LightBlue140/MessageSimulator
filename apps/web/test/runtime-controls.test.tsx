@@ -35,6 +35,10 @@ describe("runtime controls", () => {
     expect(screen.getByText("全部停止")).toBeInTheDocument();
     expect(screen.getByText("新建服务")).toBeInTheDocument();
     expect(screen.getByText("日志页")).toBeInTheDocument();
+    const quickActions = screen.getByLabelText("服务快捷操作");
+    expect(within(quickActions).getByText("全部启动")).toBeInTheDocument();
+    expect(within(quickActions).getByText("全部停止")).toBeInTheDocument();
+    expect(within(quickActions).getByText("新建服务")).toBeInTheDocument();
 
     openDefaultService();
 
@@ -153,6 +157,44 @@ describe("runtime controls", () => {
 
     await vi.waitFor(() => expect(screen.queryByText("服务 1 副本")).not.toBeInTheDocument());
     expect(fetchMock).toHaveBeenCalledWith("/api/services/service-2", { method: "DELETE" });
+  });
+
+  it("opens configuration from the service card but not from card controls", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes("/health")) {
+        throw new Error("offline");
+      }
+      if (String(url) === "/api/config") {
+        return { ok: true, json: async () => ({}) };
+      }
+      if (String(url) === "/api/services/service-1/start") {
+        return { ok: true, json: async () => ({ services: [{ id: "service-1", name: "服务 1", running: true, logs: [] }] }) };
+      }
+      throw new Error(`Unhandled request ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(screen.getByText("启动"));
+    expect(screen.queryByLabelText("协议")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("服务卡片 服务 1"));
+    expect(screen.getByLabelText("协议")).toBeInTheDocument();
+  });
+
+  it("exits service name editing when Enter is pressed", () => {
+    render(<App />);
+
+    const serviceName = screen.getByText("服务 1");
+    fireEvent.doubleClick(serviceName);
+    const nameInput = screen.getByDisplayValue("服务 1");
+
+    fireEvent.change(nameInput, { target: { value: "服务 A" } });
+    fireEvent.keyDown(nameInput, { key: "Enter" });
+
+    expect(screen.queryByDisplayValue("服务 A")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("协议")).not.toBeInTheDocument();
+    expect(screen.getAllByText("服务 A").length).toBeGreaterThan(0);
   });
 
   it("places config and message in independent scroll regions", () => {

@@ -391,9 +391,22 @@ function ServiceDashboard({
   return (
     <section className="panel scroll-region dashboard-page" aria-label="服务管理页">
       <div className="dashboard-header">
-        <div className="section-title">
-          <span className="eyebrow">Services</span>
-          <h2>服务管理</h2>
+        <div className="dashboard-title-row">
+          <div className="section-title">
+            <span className="eyebrow">Services</span>
+            <h2>服务管理</h2>
+          </div>
+          <div className="action-group quick-actions" aria-label="服务快捷操作">
+            <button className="active-button" type="button" disabled={pendingAction !== undefined} onClick={onStartAll}>
+              全部启动
+            </button>
+            <button type="button" disabled={pendingAction !== undefined} onClick={onStopAll}>
+              全部停止
+            </button>
+            <button type="button" onClick={onAdd}>
+              新建服务
+            </button>
+          </div>
         </div>
         <div className="action-group">
           <button className={dashboardView === "services" ? "active-button" : ""} type="button" onClick={() => onViewChange("services")}>
@@ -401,15 +414,6 @@ function ServiceDashboard({
           </button>
           <button className={dashboardView === "logs" ? "active-button" : ""} type="button" onClick={() => onViewChange("logs")}>
             日志页
-          </button>
-          <button className="active-button" type="button" disabled={pendingAction !== undefined} onClick={onStartAll}>
-            全部启动
-          </button>
-          <button type="button" disabled={pendingAction !== undefined} onClick={onStopAll}>
-            全部停止
-          </button>
-          <button type="button" onClick={onAdd}>
-            新建服务
           </button>
           <button type="button" onClick={onSave}>
             保存配置文件
@@ -425,23 +429,61 @@ function ServiceDashboard({
             const status = statusFor(runtimeStatus, service.id);
             const running = status?.running ?? false;
             return (
-              <article className="service-card" key={service.id}>
-                <div>
-                  <span className={running ? "status-pill running" : "status-pill"}>{running ? "运行中" : "已停止"}</span>
-                  <EditableServiceName
-                    className="service-name-field"
-                    editing={editingServiceId === service.id}
-                    label={`服务名称 ${service.name}`}
-                    name={service.name}
-                    onBlur={onRenameBlur}
-                    onChange={(name) => onRename(service.id, name)}
-                    onEdit={() => onRenameStart(service.id)}
-                  />
-                  <p>{service.config.protocol.toUpperCase()}</p>
+              <article
+                aria-label={`服务卡片 ${service.name}`}
+                className="service-card clickable-service-card"
+                key={service.id}
+                tabIndex={0}
+                onClick={() => onSelect(service.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    onSelect(service.id);
+                  }
+                }}
+              >
+                <div className="service-card-top">
+                  <div className="service-card-title">
+                    <span className={running ? "status-pill running" : "status-pill"}>{running ? "运行中" : "已停止"}</span>
+                    <EditableServiceName
+                      className="service-name-field"
+                      editing={editingServiceId === service.id}
+                      label={`服务名称 ${service.name}`}
+                      name={service.name}
+                      onBlur={onRenameBlur}
+                      onChange={(name) => onRename(service.id, name)}
+                      onEdit={() => onRenameStart(service.id)}
+                    />
+                    <p>{service.config.protocol.toUpperCase()}</p>
+                  </div>
+                  <div
+                    className="service-runtime-actions"
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <button
+                      className={running ? "" : "active-button"}
+                      type="button"
+                      disabled={running || pendingAction !== undefined}
+                      onClick={() => onStart(service.id)}
+                    >
+                      启动
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!running || pendingAction !== undefined}
+                      onClick={() => onStop(service.id)}
+                    >
+                      停止
+                    </button>
+                  </div>
                 </div>
                 <ConnectionInfo config={service.config} adapterStatus={status?.adapterStatus} compact />
                 {status?.error && <p className="service-error">{status.error}</p>}
-                <div className="card-actions">
+                <div
+                  className="card-actions"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
                   <button type="button" onClick={() => onSelect(service.id)}>
                     进入配置
                   </button>
@@ -454,21 +496,6 @@ function ServiceDashboard({
                     onClick={() => onDelete(service.id)}
                   >
                     删除
-                  </button>
-                  <button
-                    className={running ? "" : "active-button"}
-                    type="button"
-                    disabled={running || pendingAction !== undefined}
-                    onClick={() => onStart(service.id)}
-                  >
-                    启动
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!running || pendingAction !== undefined}
-                    onClick={() => onStop(service.id)}
-                  >
-                    停止
                   </button>
                 </div>
               </article>
@@ -518,20 +545,34 @@ function EditableServiceName({
 }) {
   if (editing) {
     return (
-      <label className={className}>
+      <label className={className} onClick={(event) => event.stopPropagation()}>
         {label}
         <input
           autoFocus
           value={name}
           onBlur={onBlur}
           onChange={(event) => onChange(event.target.value)}
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onBlur();
+            }
+          }}
         />
       </label>
     );
   }
 
   return (
-    <button className={`editable-name ${className ?? ""}`} type="button" onDoubleClick={onEdit}>
+    <button
+      className={`editable-name ${className ?? ""}`}
+      type="button"
+      onClick={(event) => event.stopPropagation()}
+      onDoubleClick={onEdit}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       {name}
     </button>
   );
