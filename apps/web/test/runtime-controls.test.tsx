@@ -26,7 +26,7 @@ describe("runtime controls", () => {
     expect(fetchMock).not.toHaveBeenCalledWith("/api/config");
   });
 
-  it("keeps runtime controls on the service dashboard and configuration controls in one toolbar", () => {
+  it("keeps global file controls on the service dashboard and detail controls in one toolbar", () => {
     render(<App />);
 
     expect(screen.queryByLabelText("配置文件路径")).not.toBeInTheDocument();
@@ -41,8 +41,8 @@ describe("runtime controls", () => {
     const toolbar = screen.getByLabelText("操作区");
     expect(within(toolbar).getByText("返回首页")).toBeInTheDocument();
     expect(screen.getByText("模拟数据")).toBeInTheDocument();
-    expect(screen.getByText("保存配置文件")).toBeInTheDocument();
-    expect(screen.getByText("加载配置文件")).toBeInTheDocument();
+    expect(within(toolbar).queryByText("保存配置文件")).not.toBeInTheDocument();
+    expect(within(toolbar).queryByText("加载配置文件")).not.toBeInTheDocument();
     expect(within(toolbar).getByText("编辑页")).toBeInTheDocument();
     expect(within(toolbar).getByText("参数页")).toBeInTheDocument();
     expect(within(toolbar).queryByText("启动")).not.toBeInTheDocument();
@@ -99,9 +99,11 @@ describe("runtime controls", () => {
     fireEvent.click(start);
     await vi.waitFor(() => expect(stop).toBeEnabled());
     expect(start).toBeDisabled();
+    expect(screen.getByText("运行中")).toHaveClass("running");
 
+    const requestsAfterStart = fetchMock.mock.calls.length;
     fireEvent.click(start);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(requestsAfterStart);
 
     fireEvent.click(stop);
     await vi.waitFor(() => expect(start).toBeEnabled());

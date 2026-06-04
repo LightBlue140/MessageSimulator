@@ -197,8 +197,8 @@ button:disabled {
 
 .status-pill.running {
   border-color: #2563eb;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #2563eb;
+  color: #ffffff;
 }
 
 .card-actions {
@@ -477,7 +477,8 @@ legend {
 }
 
 .dark-mode .active-button,
-.dark-mode .primary-action {
+.dark-mode .primary-action,
+.dark-mode .status-pill.running {
   border-color: #3b82f6;
   background: #2563eb;
   color: #ffffff;

@@ -271,12 +271,10 @@ export function App() {
           onBack={() => setSelectedServiceId(undefined)}
           onChange={updateSelectedConfig}
           onClosePreview={() => setPreview("")}
-          onLoad={() => setConfigFileDialogMode("load")}
           onNameChange={(name) => updateServiceName(selectedService.id, name)}
           onNameEditEnd={() => setEditingDetailName(false)}
           onNameEditStart={() => setEditingDetailName(true)}
           onPreview={handlePreview}
-          onSave={() => setConfigFileDialogMode("save")}
           onViewChange={setDetailView}
         />
       )}
@@ -520,12 +518,10 @@ function ServiceDetail({
   onBack,
   onChange,
   onClosePreview,
-  onLoad,
   onNameChange,
   onNameEditEnd,
   onNameEditStart,
   onPreview,
-  onSave,
   onViewChange
 }: {
   config: SimulatorConfig;
@@ -536,12 +532,10 @@ function ServiceDetail({
   onBack: () => void;
   onChange: (config: SimulatorConfig) => void;
   onClosePreview: () => void;
-  onLoad: () => void;
   onNameChange: (name: string) => void;
   onNameEditEnd: () => void;
   onNameEditStart: () => void;
   onPreview: () => void;
-  onSave: () => void;
   onViewChange: (view: DetailView) => void;
 }) {
   return (
@@ -553,12 +547,6 @@ function ServiceDetail({
           </button>
           <button type="button" onClick={onPreview}>
             模拟数据
-          </button>
-          <button type="button" onClick={onSave}>
-            保存配置文件
-          </button>
-          <button type="button" onClick={onLoad}>
-            加载配置文件
           </button>
           <button className={detailView === "editor" ? "active-button" : ""} type="button" onClick={() => onViewChange("editor")}>
             编辑页

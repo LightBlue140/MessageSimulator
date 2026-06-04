@@ -33,4 +33,4 @@ echo    Hou Duan: http://localhost:3001
 echo    Qian Duan: http://localhost:5173
 echo ========================================
 echo.
-pause
+exit /b 0
