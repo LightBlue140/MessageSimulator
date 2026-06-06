@@ -23,7 +23,7 @@ node scripts\clear-ports.mjs 3001 5173
 echo.
 
 echo [1/2] Starting backend...
-start "Server" cmd /k "cd /d ""%ROOT%"" && npm run dev"
+start "Server" "%ROOT%\start_server.bat"
 
 node scripts\wait-for-url.mjs http://localhost:3001/health 90
 if errorlevel 1 (
@@ -33,7 +33,7 @@ if errorlevel 1 (
 )
 
 echo [2/2] Starting frontend...
-start "Web" cmd /k "cd /d ""%ROOT%"" && npm run dev:web"
+start "Web" "%ROOT%\start_web.bat"
 
 echo.
 echo ========================================
