@@ -9,6 +9,15 @@ echo    Message Simulator - Starting...
 echo ========================================
 echo.
 
+echo Checking Node.js runtime...
+call "%ROOT%\scripts\ensure-runtime.bat"
+if errorlevel 1 (
+  echo Node.js runtime preparation failed. Check the output above.
+  pause
+  exit /b 1
+)
+echo.
+
 echo Checking dependencies...
 node scripts\ensure-deps.mjs
 if errorlevel 1 (

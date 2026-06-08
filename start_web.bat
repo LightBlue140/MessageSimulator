@@ -6,6 +6,14 @@ cd /d "%ROOT%"
 echo Message Simulator - Web
 echo UI: http://localhost:5173
 echo.
+echo Checking Node.js runtime...
+call "%ROOT%\scripts\ensure-runtime.bat"
+if errorlevel 1 (
+  echo Node.js runtime preparation failed. Check the output above.
+  pause
+  exit /b 1
+)
+echo.
 node scripts\ensure-deps.mjs
 if errorlevel 1 (
   echo Dependency installation failed. Check the output above.
