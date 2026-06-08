@@ -31,12 +31,26 @@ function findMissingPackages() {
   });
 }
 
+export function getInstallCommand({
+  platform = process.platform,
+  nodePath = process.execPath
+} = {}) {
+  if (platform === "win32") {
+    return {
+      command: nodePath,
+      args: [join(dirname(nodePath), "node_modules", "npm", "bin", "npm-cli.js"), "install"]
+    };
+  }
+
+  return { command: "npm", args: ["install"] };
+}
+
 function runInstall() {
-  const command = process.platform === "win32" ? "npm.cmd" : "npm";
-  const child = spawn(command, ["install"], {
+  const { command, args } = getInstallCommand();
+  const child = spawn(command, args, {
     cwd: rootDir,
-    stdio: "inherit",
-    windowsHide: true
+    env: process.env,
+    stdio: "inherit"
   });
 
   return new Promise((resolve, reject) => {
