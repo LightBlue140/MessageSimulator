@@ -1,20 +1,22 @@
 import type { AdapterStatus, SimulatorConfig } from "../types";
 
-const currentHost = () => globalThis.location?.hostname || "localhost";
-const localUrl = (scheme: string, port: number, path = "") => `${scheme}://${currentHost()}:${port}${path}`;
-const displayAddress = (address: string | undefined) =>
-  address?.replace("://0.0.0.0:", `://${currentHost()}:`);
+const browserHost = () => globalThis.location?.hostname || "localhost";
+const localUrl = (host: string, scheme: string, port: number, path = "") => `${scheme}://${host}:${port}${path}`;
+const displayAddress = (host: string, address: string | undefined) =>
+  address?.replace("://0.0.0.0:", `://${host}:`);
 
 export function ConnectionInfo({
   config,
   adapterStatus,
-  compact = false
+  compact = false,
+  host = browserHost()
 }: {
   config: SimulatorConfig;
   adapterStatus?: AdapterStatus;
   compact?: boolean;
+  host?: string;
 }) {
-  const actual = displayAddress(adapterStatus?.listenAddress);
+  const actual = displayAddress(host, adapterStatus?.listenAddress);
   const mqtt = config.serverSettings.mqtt;
   const sectionClassName = compact ? "connection-panel compact-connection" : "panel connection-panel";
 
@@ -32,7 +34,7 @@ export function ConnectionInfo({
           <dt>方法</dt>
           <dd><code>GET</code></dd>
           <dt>URL</dt>
-          <dd><code>{actual ? `${actual}${config.serverSettings.http.path}` : localUrl("http", config.serverSettings.http.port, config.serverSettings.http.path)}</code></dd>
+          <dd><code>{actual ? `${actual}${config.serverSettings.http.path}` : localUrl(host, "http", config.serverSettings.http.port, config.serverSettings.http.path)}</code></dd>
           <dt>Content-Type</dt>
           <dd>{config.serverSettings.http.contentType}</dd>
         </dl>
@@ -41,7 +43,7 @@ export function ConnectionInfo({
       {config.protocol === "mqtt" && (
         <dl className="connection-grid">
           <dt>MQTT Broker</dt>
-          <dd><code>{actual ?? localUrl("mqtt", mqtt.port)}</code></dd>
+          <dd><code>{actual ?? localUrl(host, "mqtt", mqtt.port)}</code></dd>
           <dt>订阅 Topic</dt>
           <dd><code>{mqtt.topic}</code></dd>
           <dt>QoS</dt>
@@ -54,14 +56,14 @@ export function ConnectionInfo({
       {config.protocol === "websocket" && (
         <dl className="connection-grid">
           <dt>WebSocket URL</dt>
-          <dd><code>{actual ? `${actual}${config.serverSettings.websocket.path}` : localUrl("ws", config.serverSettings.websocket.port, config.serverSettings.websocket.path)}</code></dd>
+          <dd><code>{actual ? `${actual}${config.serverSettings.websocket.path}` : localUrl(host, "ws", config.serverSettings.websocket.port, config.serverSettings.websocket.path)}</code></dd>
         </dl>
       )}
 
       {config.protocol === "tcp" && (
         <dl className="connection-grid">
           <dt>TCP 地址</dt>
-          <dd><code>{actual ?? localUrl("tcp", config.serverSettings.tcp.port)}</code></dd>
+          <dd><code>{actual ?? localUrl(host, "tcp", config.serverSettings.tcp.port)}</code></dd>
           <dt>编码</dt>
           <dd>{config.serverSettings.tcp.encoding}</dd>
           <dt>换行</dt>
@@ -72,7 +74,7 @@ export function ConnectionInfo({
       {config.protocol === "opcua" && (
         <dl className="connection-grid">
           <dt>Endpoint</dt>
-          <dd><code>{actual ?? localUrl("opc.tcp", config.serverSettings.opcua.port, config.serverSettings.opcua.endpointPath)}</code></dd>
+          <dd><code>{actual ?? localUrl(host, "opc.tcp", config.serverSettings.opcua.port, config.serverSettings.opcua.endpointPath)}</code></dd>
           <dt>NodeId</dt>
           <dd><code>{config.serverSettings.opcua.nodeId}</code></dd>
           <dt>数据类型</dt>

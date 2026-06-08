@@ -2,6 +2,37 @@ import type { AppConfig, MultiServiceRuntimeStatus, SimulatorConfig, SimulatorSe
 
 const baseUrl = "/api";
 
+export interface PortConflict {
+  port: number;
+  pids: string[];
+}
+
+export class PortConflictError extends Error {
+  constructor(readonly conflicts: PortConflict[]) {
+    super("Port is already in use");
+  }
+}
+
+const throwIfRequestFailed = async (response: Response) => {
+  if (response.ok) {
+    return;
+  }
+
+  const text = await response.text();
+  try {
+    const body = JSON.parse(text) as { code?: string; conflicts?: PortConflict[]; error?: string };
+    if (response.status === 409 && body.code === "PORT_CONFLICT" && Array.isArray(body.conflicts)) {
+      throw new PortConflictError(body.conflicts);
+    }
+    throw new Error(body.error ?? text);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(text);
+    }
+    throw error;
+  }
+};
+
 export async function isBackendAvailable() {
   const protocol = window.location.protocol === "https:" ? "https" : "http";
   const host = window.location.hostname || "localhost";
@@ -15,10 +46,14 @@ export async function isBackendAvailable() {
 
 export async function getConfig() {
   const response = await fetch(`${baseUrl}/config`);
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json() as Promise<AppConfig>;
+}
+
+export async function getNetworkInfo() {
+  const response = await fetch(`${baseUrl}/network`);
+  await throwIfRequestFailed(response);
+  return response.json() as Promise<{ host: string }>;
 }
 
 export async function saveConfig(config: AppConfig) {
@@ -27,9 +62,7 @@ export async function saveConfig(config: AppConfig) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config)
   });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json();
 }
 
@@ -39,9 +72,7 @@ export async function saveConfigFile(config: AppConfig, path: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path, config })
   });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json() as Promise<{ path: string; config: AppConfig }>;
 }
 
@@ -51,65 +82,49 @@ export async function loadConfigFile(path: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path })
   });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json() as Promise<{ path: string; config: AppConfig }>;
 }
 
-export async function startService(serviceId: string) {
-  const response = await fetch(`${baseUrl}/services/${serviceId}/start`, { method: "POST" });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+export async function startService(serviceId: string, options: { forceClearPorts?: boolean } = {}) {
+  const response = await fetch(`${baseUrl}/services/${serviceId}/start`, requestOptions(options.forceClearPorts));
+  await throwIfRequestFailed(response);
   return response.json() as Promise<MultiServiceRuntimeStatus>;
 }
 
 export async function stopService(serviceId: string) {
   const response = await fetch(`${baseUrl}/services/${serviceId}/stop`, { method: "POST" });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json() as Promise<MultiServiceRuntimeStatus>;
 }
 
-export async function startAllServices() {
-  const response = await fetch(`${baseUrl}/start-all`, { method: "POST" });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+export async function startAllServices(options: { forceClearPorts?: boolean } = {}) {
+  const response = await fetch(`${baseUrl}/start-all`, requestOptions(options.forceClearPorts));
+  await throwIfRequestFailed(response);
   return response.json();
 }
 
 export async function stopAllServices() {
   const response = await fetch(`${baseUrl}/stop-all`, { method: "POST" });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json();
 }
 
 export async function copyService(serviceId: string) {
   const response = await fetch(`${baseUrl}/services/${serviceId}/copy`, { method: "POST" });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json() as Promise<SimulatorService>;
 }
 
 export async function deleteService(serviceId: string) {
   const response = await fetch(`${baseUrl}/services/${serviceId}`, { method: "DELETE" });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json() as Promise<{ id: string; ok: boolean }>;
 }
 
 export async function getStatus() {
   const response = await fetch(`${baseUrl}/status`);
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json() as Promise<MultiServiceRuntimeStatus>;
 }
 
@@ -119,8 +134,18 @@ export async function previewMessage(config: SimulatorConfig) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config)
   });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+  await throwIfRequestFailed(response);
   return response.json() as Promise<{ message: string }>;
+}
+
+function requestOptions(forceClearPorts?: boolean): RequestInit {
+  if (forceClearPorts !== true) {
+    return { method: "POST" };
+  }
+
+  return {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ forceClearPorts: true })
+  };
 }

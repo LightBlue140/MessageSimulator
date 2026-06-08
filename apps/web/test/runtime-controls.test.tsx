@@ -118,6 +118,73 @@ describe("runtime controls", () => {
     expect(stop).toBeDisabled();
   });
 
+  it("asks before clearing occupied ports when starting a service", async () => {
+    const confirmMock = vi.fn().mockReturnValue(true);
+    vi.stubGlobal("confirm", confirmMock);
+    const conflictResponse = {
+      code: "PORT_CONFLICT",
+      conflicts: [{ port: 8080, pids: ["1234"] }]
+    };
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("/health")) {
+        throw new Error("offline");
+      }
+      if (String(url) === "/api/config") {
+        return { ok: true, json: async () => ({}) };
+      }
+      if (String(url) === "/api/services/service-1/start" && init?.body === undefined) {
+        return { ok: false, status: 409, text: async () => JSON.stringify(conflictResponse) };
+      }
+      if (String(url) === "/api/services/service-1/start") {
+        return { ok: true, json: async () => ({ services: [{ id: "service-1", name: "鏈嶅姟 1", running: true, logs: [] }] }) };
+      }
+      throw new Error(`Unhandled request ${String(url)} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "启动" }));
+
+    await vi.waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    expect(confirmMock.mock.calls[0][0]).toContain("端口 8080");
+    expect(fetchMock).toHaveBeenCalledWith("/api/services/service-1/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forceClearPorts: true })
+    });
+    await vi.waitFor(() => expect(screen.getByText("运行中")).toHaveClass("running"));
+  });
+
+  it("does not clear occupied ports when the user cancels", async () => {
+    vi.stubGlobal("confirm", vi.fn().mockReturnValue(false));
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes("/health")) {
+        throw new Error("offline");
+      }
+      if (String(url) === "/api/config") {
+        return { ok: true, json: async () => ({}) };
+      }
+      if (String(url) === "/api/services/service-1/start") {
+        return {
+          ok: false,
+          status: 409,
+          text: async () => JSON.stringify({ code: "PORT_CONFLICT", conflicts: [{ port: 8080, pids: ["1234"] }] })
+        };
+      }
+      throw new Error(`Unhandled request ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "启动" }));
+
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Port is already in use"));
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/services/service-1/start",
+      expect.objectContaining({ body: JSON.stringify({ forceClearPorts: true }) })
+    );
+  });
+
   it("deletes a copied service from the service dashboard", async () => {
     const copiedConfig = {
       services: [

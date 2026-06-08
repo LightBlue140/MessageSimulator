@@ -10,6 +10,7 @@ import { registerRoutes } from "../src/api/routes.js";
 import { defaultAppConfig, defaultConfig } from "../src/config/schema.js";
 import { ConfigStore } from "../src/config/store.js";
 import { RecentLogs } from "../src/runtime/logs.js";
+import type { PortConflict, PortManager } from "../src/runtime/ports.js";
 
 const getFreePort = async () =>
   new Promise<number>((resolve, reject) => {
@@ -24,15 +25,29 @@ const getFreePort = async () =>
     });
   });
 
-const createApp = async () => {
+const createApp = async (options: { portManager?: PortManager } = {}) => {
   const dir = await mkdtemp(join(tmpdir(), "sim-api-"));
   const app = Fastify();
   await registerRoutes(app, {
     configStore: new ConfigStore(join(dir, "config.json")),
-    defaultSavePath: join(dir, "save", "config.json")
+    defaultSavePath: join(dir, "save", "config.json"),
+    portManager: options.portManager
   });
 
   return { app, dir };
+};
+
+const fakePortManager = (conflicts: PortConflict[] = []) => {
+  const cleared: PortConflict[][] = [];
+  return {
+    cleared,
+    manager: {
+      findConflicts: async () => conflicts,
+      clearConflicts: async (requestedConflicts) => {
+        cleared.push(requestedConflicts);
+      }
+    } satisfies PortManager
+  };
 };
 
 describe("management API", () => {
@@ -384,6 +399,68 @@ describe("management API", () => {
     ]);
     expect(status.statusCode).toBe(200);
     expect(stopped.statusCode).toBe(200);
+  });
+
+  it("reports occupied service ports before starting", async () => {
+    const conflict = { port: 8080, pids: ["1234"] };
+    const ports = fakePortManager([conflict]);
+    const { app, dir } = await createApp({ portManager: ports.manager });
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const started = await app.inject({ method: "POST", url: "/api/services/service-1/start" });
+    const status = await app.inject({ method: "GET", url: "/api/status" });
+
+    expect(started.statusCode).toBe(409);
+    expect(started.json()).toEqual({
+      code: "PORT_CONFLICT",
+      error: "Port is already in use",
+      conflicts: [conflict]
+    });
+    expect(status.json().services[0]).toEqual(expect.objectContaining({ id: "service-1", running: false }));
+    expect(ports.cleared).toEqual([]);
+  });
+
+  it("clears occupied service ports when forced", async () => {
+    const conflict = { port: 8080, pids: ["1234", "5678"] };
+    const ports = fakePortManager([conflict]);
+    const { app, dir } = await createApp({ portManager: ports.manager });
+    cleanup.push(async () => {
+      await app.inject({ method: "POST", url: "/api/stop-all" });
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const started = await app.inject({
+      method: "POST",
+      url: "/api/services/service-1/start",
+      payload: { forceClearPorts: true }
+    });
+
+    expect(started.statusCode).toBe(200);
+    expect(ports.cleared).toEqual([[conflict]]);
+    expect(started.json().services[0]).toEqual(expect.objectContaining({ id: "service-1", running: true }));
+  });
+
+  it("checks all configured service ports before start-all", async () => {
+    const conflict = { port: 9000, pids: ["2468"] };
+    const ports = fakePortManager([conflict]);
+    const { app, dir } = await createApp({ portManager: ports.manager });
+    cleanup.push(async () => {
+      await app.close();
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    const started = await app.inject({ method: "POST", url: "/api/start-all" });
+
+    expect(started.statusCode).toBe(409);
+    expect(started.json()).toEqual({
+      code: "PORT_CONFLICT",
+      error: "Port is already in use",
+      conflicts: [conflict]
+    });
   });
 
   it("previews a generated message without starting the simulator", async () => {

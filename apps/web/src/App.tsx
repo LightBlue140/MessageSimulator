@@ -3,6 +3,7 @@ import {
   copyService,
   deleteService,
   getConfig,
+  getNetworkInfo,
   getStatus,
   isBackendAvailable,
   loadConfigFile,
@@ -14,6 +15,7 @@ import {
   stopAllServices,
   stopService
 } from "./api";
+import { PortConflictError, type PortConflict } from "./api";
 import { ConnectionInfo } from "./components/ConnectionInfo";
 import { LogViewer } from "./components/LogViewer";
 import { MessageTemplate } from "./components/MessageTemplate";
@@ -31,6 +33,13 @@ const logsPerPage = 20;
 
 const statusFor = (status: MultiServiceRuntimeStatus, serviceId: string): ServiceRuntimeStatus | undefined =>
   status.services.find((service) => service.id === serviceId);
+
+const formatPortConflictMessage = (conflicts: PortConflict[]) => {
+  const details = conflicts
+    .map((conflict) => `端口 ${conflict.port}: PID ${conflict.pids.join(", ")}`)
+    .join("\n");
+  return `以下端口已被占用：\n${details}\n\n是否关闭占用这些端口的进程并重新启动服务？`;
+};
 
 const cloneConfig = (config: SimulatorConfig): SimulatorConfig => structuredClone(config);
 
@@ -88,6 +97,7 @@ export function App() {
   const [configFilePath, setConfigFilePath] = useState(defaultConfigFilePath);
   const [configFileDialogMode, setConfigFileDialogMode] = useState<ConfigFileDialogMode | undefined>();
   const [pendingAction, setPendingAction] = useState<string | undefined>();
+  const [connectionHost, setConnectionHost] = useState<string | undefined>();
 
   const selectedService = appConfig.services.find((service) => service.id === selectedServiceId);
   const runningCount = useMemo(
@@ -106,12 +116,13 @@ export function App() {
     let cancelled = false;
 
     isBackendAvailable()
-      .then((available) => (available ? Promise.all([getConfig(), getStatus()]) : undefined))
+      .then((available) => (available ? Promise.all([getConfig(), getStatus(), getNetworkInfo()]) : undefined))
       .then((loaded) => {
         if (!cancelled && loaded !== undefined) {
-          const [loadedConfig, loadedStatus] = loaded;
+          const [loadedConfig, loadedStatus, networkInfo] = loaded;
           setAppConfig(loadedConfig);
           setRuntimeStatus(loadedStatus);
+          setConnectionHost(networkInfo.host);
         }
       })
       .catch(() => undefined);
@@ -154,7 +165,14 @@ export function App() {
       setPendingAction("start-all");
       try {
         await saveConfig(appConfig);
-        await startAllServices();
+        try {
+          await startAllServices();
+        } catch (caught) {
+          if (!(caught instanceof PortConflictError) || !window.confirm(formatPortConflictMessage(caught.conflicts))) {
+            throw caught;
+          }
+          await startAllServices({ forceClearPorts: true });
+        }
         setRuntimeStatus(await getStatus());
       } finally {
         setPendingAction(undefined);
@@ -177,7 +195,14 @@ export function App() {
       setPendingAction(`start-${serviceId}`);
       try {
         await saveConfig(appConfig);
-        setRuntimeStatus(await startService(serviceId));
+        try {
+          setRuntimeStatus(await startService(serviceId));
+        } catch (caught) {
+          if (!(caught instanceof PortConflictError) || !window.confirm(formatPortConflictMessage(caught.conflicts))) {
+            throw caught;
+          }
+          setRuntimeStatus(await startService(serviceId, { forceClearPorts: true }));
+        }
       } finally {
         setPendingAction(undefined);
       }
@@ -287,6 +312,7 @@ export function App() {
           editingServiceId={editingServiceId}
           logsPage={logsPage}
           pendingAction={pendingAction}
+          connectionHost={connectionHost}
           runtimeStatus={runtimeStatus}
           onAdd={handleAddService}
           onCopy={handleCopyService}
@@ -317,6 +343,7 @@ export function App() {
           editingName={editingDetailName}
           preview={preview}
           serviceName={selectedService.name}
+          connectionHost={connectionHost}
           onBack={() => setSelectedServiceId(undefined)}
           onChange={updateSelectedConfig}
           onClosePreview={() => setPreview("")}
@@ -368,6 +395,7 @@ export function App() {
 
 function ServiceDashboard({
   appConfig,
+  connectionHost,
   dashboardLogs,
   dashboardView,
   editingServiceId,
@@ -391,6 +419,7 @@ function ServiceDashboard({
   onViewChange
 }: {
   appConfig: AppConfig;
+  connectionHost?: string;
   dashboardLogs: Array<ServiceRuntimeStatus["logs"][number]>;
   dashboardView: DashboardView;
   editingServiceId?: string;
@@ -508,7 +537,12 @@ function ServiceDashboard({
                     </button>
                   </div>
                 </div>
-                <ConnectionInfo config={service.config} adapterStatus={status?.adapterStatus} compact />
+                <ConnectionInfo
+                  config={service.config}
+                  adapterStatus={status?.adapterStatus}
+                  compact
+                  host={connectionHost}
+                />
                 {status?.error && <p className="service-error">{status.error}</p>}
                 <div
                   className="card-actions"
@@ -610,6 +644,7 @@ function EditableServiceName({
 }
 
 function ServiceDetail({
+  connectionHost,
   config,
   detailView,
   editingName,
@@ -624,6 +659,7 @@ function ServiceDetail({
   onPreview,
   onViewChange
 }: {
+  connectionHost?: string;
   config: SimulatorConfig;
   detailView: DetailView;
   editingName: boolean;
@@ -693,7 +729,7 @@ function ServiceDetail({
                 />
               </label>
             </div>
-            <ConnectionInfo config={config} />
+            <ConnectionInfo config={config} host={connectionHost} />
           </section>
           <section className="panel scroll-region resizable-panel template-panel" aria-label="消息区">
             <MessageTemplate

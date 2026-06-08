@@ -3,7 +3,9 @@ import {
   copyService,
   deleteService,
   getConfig,
+  getNetworkInfo,
   loadConfigFile,
+  PortConflictError,
   saveConfigFile,
   startAllServices,
   startService,
@@ -27,6 +29,17 @@ describe("api", () => {
 
     await expect(getConfig()).resolves.toEqual(defaultAppConfig);
     expect(fetchMock).toHaveBeenCalledWith("/api/config");
+  });
+
+  it("loads the LAN host from the backend", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ host: "192.168.15.152" })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getNetworkInfo()).resolves.toEqual({ host: "192.168.15.152" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/network");
   });
 
   it("saves a config file through the backend", async () => {
@@ -85,5 +98,36 @@ describe("api", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/stop-all", { method: "POST" });
     expect(fetchMock).toHaveBeenCalledWith("/api/services/service-1/copy", { method: "POST" });
     expect(fetchMock).toHaveBeenCalledWith("/api/services/service-1", { method: "DELETE" });
+  });
+
+  it("sends force-clear requests when requested", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ services: [] })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await startService("service-1", { forceClearPorts: true });
+    await startAllServices({ forceClearPorts: true });
+
+    const forceOptions = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ forceClearPorts: true })
+    };
+    expect(fetchMock).toHaveBeenCalledWith("/api/services/service-1/start", forceOptions);
+    expect(fetchMock).toHaveBeenCalledWith("/api/start-all", forceOptions);
+  });
+
+  it("throws a typed port conflict error for occupied ports", async () => {
+    const conflicts = [{ port: 8080, pids: ["1234"] }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      text: async () => JSON.stringify({ code: "PORT_CONFLICT", conflicts })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(startService("service-1")).rejects.toMatchObject(new PortConflictError(conflicts));
   });
 });

@@ -17,11 +17,20 @@ import {
 import { ConfigStore } from "../config/store.js";
 import { generateMessageSnapshot } from "../generator/replacement.js";
 import { MultiServiceRuntime } from "../runtime/multi-runtime.js";
+import { getLanHost } from "../runtime/network.js";
+import {
+  listenPortForConfig,
+  listenPortsForServices,
+  WindowsPortManager,
+  type PortConflict,
+  type PortManager
+} from "../runtime/ports.js";
 import { SimulatorRuntime } from "../runtime/runtime.js";
 
 export interface RegisterRoutesOptions {
   configStore?: ConfigStore;
   defaultSavePath?: string;
+  portManager?: PortManager;
   runtime?: MultiServiceRuntime;
 }
 
@@ -78,10 +87,23 @@ const createDefaultRuntime = () => new MultiServiceRuntime(createSimulatorRuntim
 const sendValidationError = (reply: FastifyReply, error: ZodError) =>
   reply.status(400).send({ error: "Invalid simulator config", issues: error.issues });
 
+const portConflictPayload = (conflicts: PortConflict[]) => ({
+  code: "PORT_CONFLICT",
+  error: "Port is already in use",
+  conflicts
+});
+
+const forceClearPorts = (body: unknown) =>
+  typeof body === "object" &&
+  body !== null &&
+  "forceClearPorts" in body &&
+  (body as { forceClearPorts?: unknown }).forceClearPorts === true;
+
 export async function registerRoutes(app: FastifyInstance, options: RegisterRoutesOptions = {}) {
   const configStore = options.configStore ?? new ConfigStore(defaultConfigPath);
   const defaultSavePath =
     options.defaultSavePath ?? process.env.SIMULATOR_SAVE_PATH ?? join(findRepoRoot(), "save", "config.json");
+  const portManager = options.portManager ?? new WindowsPortManager();
   const runtime = options.runtime ?? createDefaultRuntime();
   let currentConfig: AppConfig | undefined;
 
@@ -131,6 +153,8 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
     return runtime.getStatus();
   });
 
+  app.get("/api/network", async () => ({ host: getLanHost() }));
+
   app.post("/api/services/:id/copy", async (request, reply) => {
     const config = await loadCurrentConfig();
     const { id } = request.params as { id: string };
@@ -177,9 +201,22 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
     return { message: generateMessageSnapshot(parsed.data.messageTemplate, parsed.data.parameters) };
   });
 
-  app.post("/api/services/:id/start", async (request) => {
+  app.post("/api/services/:id/start", async (request, reply) => {
     const { id } = request.params as { id: string };
     const config = await loadCurrentConfig();
+    const service = config.services.find((candidate) => candidate.id === id);
+    if (service === undefined) {
+      return reply.status(404).send({ error: `Service not found: ${id}` });
+    }
+
+    const conflicts = await portManager.findConflicts([listenPortForConfig(service.config)]);
+    if (conflicts.length > 0) {
+      if (!forceClearPorts(request.body)) {
+        return reply.status(409).send(portConflictPayload(conflicts));
+      }
+      await portManager.clearConflicts(conflicts);
+    }
+
     await runtime.startService(config, id);
     return runtime.getStatus();
   });
@@ -191,7 +228,19 @@ export async function registerRoutes(app: FastifyInstance, options: RegisterRout
     return runtime.getStatus();
   });
 
-  app.post("/api/start-all", async () => runtime.startAll(await loadCurrentConfig()));
+  app.post("/api/start-all", async (request, reply) => {
+    const config = await loadCurrentConfig();
+    const conflicts = await portManager.findConflicts(listenPortsForServices(config.services));
+
+    if (conflicts.length > 0) {
+      if (!forceClearPorts(request.body)) {
+        return reply.status(409).send(portConflictPayload(conflicts));
+      }
+      await portManager.clearConflicts(conflicts);
+    }
+
+    return runtime.startAll(config);
+  });
 
   app.post("/api/stop-all", async () => {
     const config = await loadCurrentConfig();
