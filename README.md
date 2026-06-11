@@ -32,17 +32,13 @@ The startup script checks the local runtime first. If Node.js is not installed, 
 
 Then it installs missing npm dependencies automatically and starts:
 
-- Backend: `http://localhost:3001`
-
 - Web UI: `http://localhost:5173`
 
 然后自动安装缺失的 npm 依赖，并启动：
 
-后端：http://localhost:3001
-
 - Web 界面：http://localhost:5173
 
-- You can also start the backend or frontend separately:
+You can also start the backend or frontend separately:
 
 你也可以单独启动后端或前端：
 
