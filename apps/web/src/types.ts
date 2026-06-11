@@ -1,4 +1,5 @@
 export type Protocol = "http" | "mqtt" | "websocket" | "tcp" | "opcua";
+export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type ParameterConfig =
   | { name: string; type: "integer"; enabled: boolean; min: number; max: number }
@@ -15,7 +16,7 @@ export type ParameterConfig =
 export interface SimulatorConfig {
   protocol: Protocol;
   serverSettings: {
-    http: { port: number; path: string; contentType: string };
+    http: { port: number; path: string; method: HttpMethod; contentType: string };
     mqtt: {
       port: number;
       topic: string;
@@ -74,7 +75,7 @@ export interface MultiServiceRuntimeStatus {
 export const defaultConfig: SimulatorConfig = {
   protocol: "http",
   serverSettings: {
-    http: { port: 8080, path: "/message", contentType: "application/json" },
+    http: { port: 8080, path: "/message", method: "GET", contentType: "application/json" },
     mqtt: { port: 1883, topic: "simulator/message", qos: 0, retain: false },
     websocket: { port: 8081, path: "/ws" },
     tcp: { port: 9000, appendNewline: true, encoding: "utf8" },

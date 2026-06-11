@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { within } from "@testing-library/dom";
 import { describe, expect, it } from "vitest";
 import { App } from "../src/App";
 
@@ -22,6 +23,18 @@ describe("dynamic forms", () => {
     fireEvent.click(screen.getByLabelText("启用用户名和密码"));
     expect(screen.getByLabelText("用户名")).toBeInTheDocument();
     expect(screen.getByLabelText("密码")).toBeInTheDocument();
+  });
+
+  it("edits the HTTP method and updates connection instructions", () => {
+    openDefaultService();
+
+    expect(screen.getByLabelText("HTTP 方法")).toHaveValue("GET");
+    fireEvent.change(screen.getByLabelText("HTTP 方法"), { target: { value: "POST" } });
+
+    expect(screen.getByLabelText("HTTP 方法")).toHaveValue("POST");
+    const connectionPanel = screen.getByText("连接方式").closest("section");
+    expect(connectionPanel).not.toBeNull();
+    expect(within(connectionPanel as HTMLElement).getByText("POST")).toBeInTheDocument();
   });
 
   it("shows vector component controls after parameter type switch", () => {

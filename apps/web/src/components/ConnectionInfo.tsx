@@ -32,7 +32,7 @@ export function ConnectionInfo({
       {config.protocol === "http" && (
         <dl className="connection-grid">
           <dt>方法</dt>
-          <dd><code>GET</code></dd>
+          <dd><code>{config.serverSettings.http.method}</code></dd>
           <dt>URL</dt>
           <dd><code>{actual ? `${actual}${config.serverSettings.http.path}` : localUrl(host, "http", config.serverSettings.http.port, config.serverSettings.http.path)}</code></dd>
           <dt>Content-Type</dt>

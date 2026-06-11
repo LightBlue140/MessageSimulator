@@ -13,6 +13,18 @@ describe("simulatorConfigSchema", () => {
     expect(simulatorConfigSchema.parse(defaultConfig).protocol).toBe("http");
   });
 
+  it("defaults legacy HTTP configs to GET", () => {
+    const parsed = simulatorConfigSchema.parse({
+      ...defaultConfig,
+      serverSettings: {
+        ...defaultConfig.serverSettings,
+        http: { port: 8080, path: "/message", contentType: "application/json" }
+      }
+    });
+
+    expect(parsed.serverSettings.http.method).toBe("GET");
+  });
+
   it("rejects invalid intervals", () => {
     expect(() =>
       simulatorConfigSchema.parse({ ...defaultConfig, randomizeIntervalSeconds: 0 })

@@ -35,7 +35,7 @@ Review the process IDs before confirming so that you do not close an important p
 
 Connection instructions prefer the machine's LAN IPv4 address, such as `192.168.x.x`, so other devices on the same network can connect directly.
 
-- HTTP: call the displayed `GET` URL.
+- HTTP: select GET, POST, PUT, PATCH, or DELETE, then call the displayed URL with that method.
 - MQTT: connect to the displayed broker address and subscribe to the configured topic.
 - WebSocket: connect to the displayed WebSocket URL.
 - TCP: connect to the displayed TCP address.

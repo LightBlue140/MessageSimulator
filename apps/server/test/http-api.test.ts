@@ -519,6 +519,44 @@ describe("HttpAdapter", () => {
     }
   });
 
+  it("serves the current snapshot through the configured HTTP method", async () => {
+    const logs = new RecentLogs();
+    const adapter = new HttpAdapter();
+    const context: AdapterContext = {
+      config: {
+        ...defaultConfig,
+        serverSettings: {
+          ...defaultConfig.serverSettings,
+          http: {
+            ...defaultConfig.serverSettings.http,
+            port: 0,
+            path: "/submit",
+            method: "POST",
+            contentType: "application/json"
+          }
+        }
+      },
+      getSnapshot: () => "{\"ok\":true}",
+      logs
+    };
+
+    try {
+      await adapter.start(context);
+      const address = adapter.getStatus().listenAddress;
+      const requestAddress = address?.replace("0.0.0.0", "127.0.0.1");
+
+      const getResponse = await fetch(`${requestAddress}/submit`);
+      const postResponse = await fetch(`${requestAddress}/submit`, { method: "POST" });
+
+      expect(getResponse.status).toBe(404);
+      expect(postResponse.status).toBe(200);
+      expect(await postResponse.text()).toBe("{\"ok\":true}");
+      expect(logs.list()).toEqual([expect.objectContaining({ level: "info", message: "HTTP POST /submit" })]);
+    } finally {
+      await adapter.stop();
+    }
+  });
+
   it("closes the server and resets status when stopped", async () => {
     const adapter = new HttpAdapter();
     const context: AdapterContext = {

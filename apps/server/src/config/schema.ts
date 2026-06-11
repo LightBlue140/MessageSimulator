@@ -73,9 +73,15 @@ export const parameterSchema = z
   });
 
 export const protocolSchema = z.enum(["http", "mqtt", "websocket", "tcp", "opcua"]);
+export const httpMethodSchema = z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
 export const serverSettingsSchema = z.object({
-  http: z.object({ port, path: z.string().startsWith("/"), contentType: z.string().min(1) }),
+  http: z.object({
+    port,
+    path: z.string().startsWith("/"),
+    method: httpMethodSchema.default("GET"),
+    contentType: z.string().min(1)
+  }),
   mqtt: z.object({
     port,
     topic: z.string().min(1),
@@ -127,7 +133,7 @@ export type AppConfig = z.infer<typeof appConfigSchema>;
 export const defaultConfig: SimulatorConfig = {
   protocol: "http",
   serverSettings: {
-    http: { port: 8080, path: "/message", contentType: "application/json" },
+    http: { port: 8080, path: "/message", method: "GET", contentType: "application/json" },
     mqtt: { port: 1883, topic: "simulator/message", qos: 0, retain: false },
     websocket: { port: 8081, path: "/ws" },
     tcp: { port: 9000, appendNewline: true, encoding: "utf8" },

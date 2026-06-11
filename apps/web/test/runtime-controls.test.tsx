@@ -310,7 +310,9 @@ describe("runtime controls", () => {
     openDefaultService();
 
     expect(screen.getByText("连接方式")).toBeInTheDocument();
-    expect(screen.getByText("GET")).toBeInTheDocument();
+    const httpConnectionPanel = screen.getByText("连接方式").closest("section");
+    expect(httpConnectionPanel).not.toBeNull();
+    expect(within(httpConnectionPanel as HTMLElement).getByText("GET")).toBeInTheDocument();
     expect(screen.getByText("http://localhost:8080/message")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("协议"), { target: { value: "mqtt" } });

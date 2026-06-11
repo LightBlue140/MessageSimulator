@@ -35,7 +35,7 @@
 
 连接方式会优先显示本机局域网 IPv4 地址，例如 `192.168.x.x`，方便同一局域网内的其他设备直接配置连接。
 
-- HTTP：使用页面显示的 `GET` 地址请求消息。
+- HTTP：选择 GET、POST、PUT、PATCH 或 DELETE 方法，并使用页面显示的地址请求消息。
 - MQTT：连接页面显示的 Broker 地址，并订阅配置的 Topic。
 - WebSocket：连接页面显示的 WebSocket URL。
 - TCP：连接页面显示的 TCP 地址。

@@ -11,10 +11,14 @@ export class HttpAdapter implements SimulatorAdapter {
     const settings = context.config.serverSettings.http;
     const app = Fastify();
 
-    app.get(settings.path, async (_request, reply) => {
-      this.requestCount += 1;
-      context.logs.add("info", `HTTP GET ${settings.path}`);
-      return reply.type(settings.contentType).send(context.getSnapshot());
+    app.route({
+      method: settings.method,
+      url: settings.path,
+      handler: async (_request, reply) => {
+        this.requestCount += 1;
+        context.logs.add("info", `HTTP ${settings.method} ${settings.path}`);
+        return reply.type(settings.contentType).send(context.getSnapshot());
+      }
     });
 
     this.app = app;

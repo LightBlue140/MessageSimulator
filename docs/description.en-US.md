@@ -4,7 +4,7 @@ Message Simulator is a local multi-protocol message service tool for quickly sim
 
 The tool is useful for integration testing, device data simulation, API validation, and demos. It generates a current message snapshot from the configured template and exposes or sends that snapshot through the selected protocol:
 
-- HTTP: returns the current message when a client requests the configured path.
+- HTTP: returns the current message when a client requests the configured path with the selected GET, POST, PUT, PATCH, or DELETE method.
 - MQTT: runs an embedded broker and publishes messages to the configured topic.
 - WebSocket: pushes messages to connected clients on the configured interval.
 - TCP: sends message text to connected clients.

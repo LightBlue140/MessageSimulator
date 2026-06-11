@@ -1,4 +1,6 @@
-import type { Protocol, SimulatorConfig } from "../types";
+import type { HttpMethod, Protocol, SimulatorConfig } from "../types";
+
+const httpMethods: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
 interface ProtocolSettingsProps {
   config: SimulatorConfig;
@@ -37,6 +39,24 @@ export function ProtocolSettings({ config, setConfig }: ProtocolSettingsProps) {
       </label>
       {config.protocol === "http" && (
         <>
+          <label>
+            HTTP 方法
+            <select
+              value={config.serverSettings.http.method}
+              onChange={(event) =>
+                updateSettings("http", {
+                  ...config.serverSettings.http,
+                  method: event.target.value as HttpMethod
+                })
+              }
+            >
+              {httpMethods.map((method) => (
+                <option key={method} value={method}>
+                  {method}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             HTTP 路径
             <input
